@@ -40,6 +40,7 @@ class Transition:
         1/3 arises from summing the coupling of the ground hyperfine state to each possible excited state
         hyperfine state. It can also be viewed as *averaging* the coupling of each fine structure ground state to
         the fine structure excited states over all of the possible fine structure ground states.
+        Note that this simplifcation may only be valid for Jg = 1/2
         See Steck Eq. (45)
         """
         return self.dJJ/np.sqrt(3)

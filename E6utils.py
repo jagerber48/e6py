@@ -116,6 +116,22 @@ def func3d_xr(f, x0=(-1,)*3, xf=(1,)*3, n_steps=(10,)*3):
     return field_xr
 
 
+def template_xr(value=0, x0=(-1,)*3, xf=(1,)*3, n_steps=(10,)*3):
+    x0 = single_to_triple(x0)
+    xf = single_to_triple(xf)
+    n_steps = single_to_triple(n_steps)
+    x_coord = np.linspace(x0[0], xf[0], n_steps[0])
+    y_coord = np.linspace(x0[1], xf[1], n_steps[1])
+    z_coord = np.linspace(x0[2], xf[2], n_steps[2])
+    template_xr = xr.DataArray(value,
+                            coords=[
+                                    ('x', x_coord),
+                                    ('y', y_coord),
+                                    ('z', z_coord)
+                                    ])
+    return template_xr
+
+
 def resize_range(rmin=0, rmax=1, scale=1.1):
     cent = (rmin + rmax)/2
     half_rng = scale*(rmax - rmin)/2
