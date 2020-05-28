@@ -59,7 +59,7 @@ def get_dict_param_keys():
 
 def make_param_dict(name, val, std, conf_level=erf(1 / np.sqrt(2)), dof=None):
     pdict = {'name': name, 'val': val, 'std': std, 'conf_level': conf_level}
-    if dof is None:  # Assume normal distribution is dof not specified
+    if dof is None:  # Assume normal distribution if dof not specified
         tcrit = scipy.stats.norm.ppf((1 + conf_level) / 2)
     else:
         tcrit = scipy.stats.t.ppf((1 + conf_level) / 2, dof)

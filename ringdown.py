@@ -11,7 +11,7 @@ from pathlib import Path
 import os
 
 
-def transmitted_intensity_depracated(beta, nutilde, tau_s, t):
+def transmitted_intensity_deprecated(beta, nutilde, tau_s, t):
     # Equivalent to function transmitted_intensity but slower to calculate and more complicated
     tprime = t/tau_s
     arg1 = -tprime + 1j*(nutilde*tprime**2/2 - 1/(2*nutilde))

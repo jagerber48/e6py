@@ -1,6 +1,10 @@
 import numpy as np
 import xarray as xr
-import time
+import scipy.constants as const
+
+hbar = const.hbar
+c = const.c
+ep0 = const.epsilon_0
 
 
 def rot_mat(axis=(1, 0, 0), angle=0.0):
@@ -34,7 +38,7 @@ def matrix_rot_v_onto_w(v, w):
     w = np.array(w)
     v = v/np.linalg.norm(v)
     w = w/np.linalg.norm(w)
-    angle = np.degrees(np.arccos(np.dot(v, w)))
+    angle = float(np.degrees(np.arccos(np.dot(v, w))))
     axis = np.cross(v, w)
     if all(axis == np.array([0, 0, 0])):
         mat = np.identity(3)
@@ -45,7 +49,7 @@ def matrix_rot_v_onto_w(v, w):
 
 def diff_arb(da, coord_list, *args, **kwargs):
     # da is an xarray. Coord list is list of subsequent coordinate derivatives to take
-    # of thie xarray
+    # of the xarray
     new_da = da
     for i in coord_list:
         new_da = new_da.differentiate(i, *args, **kwargs)
@@ -54,30 +58,30 @@ def diff_arb(da, coord_list, *args, **kwargs):
 
 def hessian(da, x0, y0, z0):
     ind_dict = {0: 'x', 1: 'y', 2: 'z'}
-    mat = np.zeros([3, 3])
+    hess = np.zeros([3, 3])
     for i in range(3):
         for j in range(3):
-            mat[i, j] = diff_arb(da, [ind_dict[i], ind_dict[j]]).sel(x=x0, y=y0, z=z0, method='nearest')
-    return mat
+            hess[i, j] = diff_arb(da, [ind_dict[i], ind_dict[j]]).sel(x=x0, y=y0, z=z0, method='nearest')
+    return hess
 
 
-def gaussian_1d(x, x0=0, sx=1, A=1, B=0):
+def gaussian_1d(x, x0=0.0, sx=1.0, A=1.0, B=0.0):
     return A * np.exp(-(1/2)*((x-x0)/sx)**2) + B
 
 
-def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, B=0, theta=0):
+def gaussian_2d(x, y, x0=0.0, y0=0.0, sx=1.0, sy=1.0, A=1.0, B=0.0, theta=0.0):
     rx = np.cos(np.radians(theta))*(x-x0) - np.sin(np.radians(theta))*(y-y0)
     ry = np.sin(np.radians(theta))*(x-x0) + np.cos(np.radians(theta))*(y-y0)
     return A * np.exp(-(1/2)*((rx/sx)**2 + ((ry/sy)**2))) + B
 
 
-def parabolic_2d(x, y, x0=0, y0=0, parx=1, pary=1, A=1, B=0, theta=0):
+def parabolic_2d(x, y, x0=0.0, y0=0.0, parx=1.0, pary=1.0, A=1.0, B=0.0, theta=0.0):
     rx = np.cos(np.radians(theta)) * (x - x0) - np.sin(np.radians(theta)) * (y - y0)
     ry = np.sin(np.radians(theta)) * (x - x0) + np.cos(np.radians(theta)) * (y - y0)
     return A * np.maximum(1-(rx/parx)**2-(ry/pary)**2, 0)**1.5 + B
 
 
-def bimodal_2d(x, y, x0=0, y0=0, sx=1, sy=1, parx=0.1, pary=0.1,
+def bimodal_2d(x, y, x0=0.0, y0=0.0, sx=1.0, sy=1.0, parx=0.1, pary=0.1,
                peakG=1, peakP=1, B=0, theta=0):
     tot = B + gaussian_2d(x, y, x0, y0, sx, sy, peakG, 0, theta) \
           + parabolic_2d(x, y, x0, y0, parx, pary, peakP, 0, theta)
@@ -134,3 +138,11 @@ def img_moments(img):
     sx = np.sqrt(varx)
     sy = np.sqrt(vary)
     return x0, y0, sx, sy
+
+
+def e_field_to_intensity(E):
+    return (1/2)*c*ep0*E**2
+
+
+def intensity_to_e_field(intensity):
+    return np.sqrt(2*intensity/(c*ep0))
