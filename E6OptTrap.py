@@ -120,25 +120,6 @@ class Beam:
                      * E6utils.gaussian_2d(x, y, x0=0, y0=0, sx=w0_x / 2, sy=w0_y / 2))
 
 
-def ODT_params_analytic(atom, power, waist, wavelength):
-    # Analytic calculation of trap depth and frequencies for simple Gaussian beam running wave ODT
-    # Sanity check for more complicated functionality in OptTrap class.
-    I0 = Beam.power_to_max_intensity(power, waist)
-    zr = Beam.w0_to_zr(waist, wavelength)
-    trap_depth = -1*atom.optical_potential_from_intensity(I0, wavelength)
-    omega_radial = np.sqrt(4*trap_depth/(atom.mass*waist**2))
-    omega_axial = np.sqrt(2*trap_depth/(atom.mass*zr**2))
-    print(omega_radial)
-    trap_freqs = np.array([omega_radial, omega_radial, omega_axial])
-    omega_geom_mean = np.prod(trap_freqs) ** (1 / 3)
-    print(f'Trap Depth = {(trap_depth / const.h) * 1e-6:.2f} MHz = {(trap_depth / const.k) * 1e6:.2f} \\mu K')
-    print('Trap Frequencies = \n'
-          + '\n'.join([f'{trap_freqs[i] / (2 * np.pi):.2f} Hz' for i in range(3)])
-          )
-    print(f'Geometric Mean = {omega_geom_mean / (2 * np.pi):.2f} Hz')
-    return
-
-
 class OptTrap:
     def __init__(self, beams, atom=Rb87_Atom, quiet=False):
         try:
@@ -158,12 +139,19 @@ class OptTrap:
             self.print_properties()
 
     def get_trap_params(self):
-        tot_pot_field = self.make_pot_field(x0=(-1e-6,) * 3, xf=(1e-6,) * 3, n_steps=(10,) * 3)
+        """ Calculate trap frequencies, geometric mean of trap frequencies, and trap depth
+
+        Calculation accomplished by numerically simulating the optical potential in the vicinity of the origin.
+        Trap depth is found by determining the minimum of the optical potential
+        Trap frequency is found by numerically calculating the hessian matrix (array of 2nd derivatives) of the
+        optical potential and diagonalizing to extract principle components.
+        """
+        tot_pot_field = self.make_pot_field(x0=(-1e-7,) * 3, xf=(1e-7,) * 3, n_steps=(10,) * 3)
+        self.trap_depth = -tot_pot_field.values.min()
         hess = E6utils.hessian(tot_pot_field, x0=0, y0=0, z0=0)
-        vals = np.linalg.eig(hess)[0]  # [0] makes it only return eigenvalues and not eigenvectors
+        vals = np.linalg.eig(hess)[0]  # extract only eigenvalues, ignore eigenvectors
         self.trap_freqs = np.sqrt(vals / self.atom.mass)
         self.trap_freq_geom_mean = np.prod(self.trap_freqs) ** (1 / 3)
-        self.trap_depth = -tot_pot_field.max().values
         return self.trap_depth, self.trap_freqs
 
     def make_pot_field(self, x0=(-1e-6,) * 3, xf=(1e-6,) * 3, n_steps=(10,) * 3):
@@ -180,6 +168,7 @@ class OptTrap:
         return self.pot_field
 
     def calc_psd(self, N, T, quiet=None):
+        # Calculate phase space density given atom number and temperature using trap parameters
         if quiet is None:
             quiet = self.quiet
         psd = N * ((const.hbar * self.trap_freq_geom_mean) / (const.k * T)) ** 3
@@ -188,6 +177,7 @@ class OptTrap:
         return psd
 
     def calc_peak_density(self, N, T, quiet=None):
+        # Calculate peak density from phase space density
         if quiet is None:
             quiet = self.quiet
         lambda_db = const.h / np.sqrt(2 * np.pi * self.atom.mass * const.k * T)
@@ -195,6 +185,16 @@ class OptTrap:
         if not quiet:
             print(f'Peak Density = {n0*(1e-2 ** 3):.1e} cm^-3')
         return n0
+
+    def calc_cloud_sizes(self, T, quiet=None):
+        sigma_list = [None, None, None]
+        for i in range(3):
+            sigma_list[i] = np.sqrt(const.k*T / (self.atom.mass * self.trap_freqs[i]**2))
+        if quiet is None:
+            quiet = self.quiet
+        if not quiet:
+            print(f'Cloud size (sx, sy, sz) = ('+ ', '.join([f'{sigma*1e6:.2f}' for sigma in sigma_list]) + ') \\mu m')
+        return sigma_list
 
     def print_properties(self):
         print(f'Trap Depth = {(self.trap_depth/const.h)*1e-6:.2f} MHz = {(self.trap_depth/const.k)*1e6:.2f} \\mu K')
@@ -238,3 +238,21 @@ def make_sphere_quad_pot(gf=-(1/2), mf=-1, B_grad=1, units='T/m', trans_list=Non
                   * np.sqrt((0.5*B_grad*x)**2 + (0.5*B_grad*y)**2 + (B_grad*z)**2)
     sphere_quad_pot = E6utils.func3d_xr(sphere_quad_func, x0, xf, n_steps)
     return sphere_quad_pot
+
+
+def ODT_params_analytic(atom, power, waist, wavelength):
+    # Analytic calculation of trap depth and frequencies for simple Gaussian beam running wave ODT
+    # Sanity check for more complicated functionality in OptTrap class.
+    I0 = Beam.power_to_max_intensity(power, waist)
+    zr = Beam.w0_to_zr(waist, wavelength)
+    trap_depth = np.abs(atom.optical_potential_from_intensity(I0, wavelength))
+    omega_radial = np.sqrt(4*trap_depth/(atom.mass*waist**2))
+    omega_axial = np.sqrt(2*trap_depth/(atom.mass*zr**2))
+    trap_freqs = np.array([omega_radial, omega_radial, omega_axial])
+    omega_geom_mean = np.prod(trap_freqs) ** (1 / 3)
+    print(f'Trap Depth = {(trap_depth / const.h) * 1e-6:.2f} MHz = {(trap_depth / const.k) * 1e6:.2f} \\mu K')
+    print('Trap Frequencies = \n'
+          + '\n'.join([f'{trap_freqs[i] / (2 * np.pi):.2f} Hz' for i in range(3)])
+          )
+    print(f'Geometric Mean = {omega_geom_mean / (2 * np.pi):.2f} Hz')
+    return
