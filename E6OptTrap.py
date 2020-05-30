@@ -70,17 +70,18 @@ class Beam:
     def translate(self, trans_vec):
         # Add translation transformation to self.trans_list
         self.trans_list.append(lambda v: E6utils.translate_vec(v, -trans_vec))
-        return
+        return self
 
     def transform(self, trans_mat):
         # Add matrix transformation to self.trans_list
         self.trans_list.append(lambda v: E6utils.transform_vec(v, trans_mat))
+        return self
 
-    def rotate(self, axis=(1, 0, 0), angle=0):
+    def rotate(self, axis=(1, 0, 0), angle=0.0):
         # Add rotation transformation to self.trans_list
         rot_mat = E6utils.rot_mat(axis, -angle)
         self.transform(rot_mat)
-        return
+        return self
 
     @staticmethod
     def waist_profile(waist, wavelength, z):
@@ -193,13 +194,13 @@ class OptTrap:
         if quiet is None:
             quiet = self.quiet
         if not quiet:
-            print(f'Cloud size (sx, sy, sz) = ('+ ', '.join([f'{sigma*1e6:.2f}' for sigma in sigma_list]) + ') \\mu m')
+            print(f'Cloud size (sx, sy, sz) = (' + ', '.join([f'{sigma*1e6:.2f}' for sigma in sigma_list]) + ') \\mu m')
         return sigma_list
 
     def print_properties(self):
         print(f'Trap Depth = {(self.trap_depth/const.h)*1e-6:.2f} MHz = {(self.trap_depth/const.k)*1e6:.2f} \\mu K')
-        print('Trap Frequencies = \n'
-              + '\n'.join([f'{self.trap_freqs[i]/(2*np.pi):.2f} Hz' for i in range(3)])
+        print('Trap Frequencies (wx, wy, wz) = ('
+              + ', '.join([f'{self.trap_freqs[i]/(2*np.pi):.2f}' for i in range(3)]) + ') Hz'
               )
         print(f'Geometric Mean = {self.trap_freq_geom_mean / (2 * np.pi):.2f} Hz')
         return
@@ -240,7 +241,7 @@ def make_sphere_quad_pot(gf=-(1/2), mf=-1, B_grad=1, units='T/m', trans_list=Non
     return sphere_quad_pot
 
 
-def ODT_params_analytic(atom, power, waist, wavelength):
+def ODT_params_analytic(atom, power, waist, wavelength, quiet=False):
     # Analytic calculation of trap depth and frequencies for simple Gaussian beam running wave ODT
     # Sanity check for more complicated functionality in OptTrap class.
     I0 = Beam.power_to_max_intensity(power, waist)
@@ -250,9 +251,32 @@ def ODT_params_analytic(atom, power, waist, wavelength):
     omega_axial = np.sqrt(2*trap_depth/(atom.mass*zr**2))
     trap_freqs = np.array([omega_radial, omega_radial, omega_axial])
     omega_geom_mean = np.prod(trap_freqs) ** (1 / 3)
-    print(f'Trap Depth = {(trap_depth / const.h) * 1e-6:.2f} MHz = {(trap_depth / const.k) * 1e6:.2f} \\mu K')
-    print('Trap Frequencies = \n'
-          + '\n'.join([f'{trap_freqs[i] / (2 * np.pi):.2f} Hz' for i in range(3)])
-          )
-    print(f'Geometric Mean = {omega_geom_mean / (2 * np.pi):.2f} Hz')
-    return
+    if not quiet:
+        print(f'Trap Depth = {(trap_depth / const.h) * 1e-6:.2f} MHz = {(trap_depth / const.k) * 1e6:.2f} \\mu K')
+        print('Trap Frequencies = \n'
+              + '\n'.join([f'{trap_freqs[i] / (2 * np.pi):.2f} Hz' for i in range(3)])
+              )
+        print(f'Geometric Mean = {omega_geom_mean / (2 * np.pi):.2f} Hz')
+    return trap_depth, omega_radial, omega_axial
+
+
+def cloud_size_single_beam(T, atom, power, waist, wavelength, quiet=False):
+    V0, omega_radial, omega_axial = ODT_params_analytic(atom, power, waist, wavelength, quiet=True)
+    zr = Beam.w0_to_zr(waist, wavelength)
+    sigma_radial = np.sqrt(waist ** 2 * (const.k * T) / (4 * V0))
+    sigma_axial = np.sqrt(zr ** 2 * (const.k * T) / (2 * V0))
+    if not quiet:
+        print(f'Cloud size (sx, sy, sz) = '
+              f'({sigma_radial*1e6:.2f}, {sigma_radial*1e6:.2f}, {sigma_axial*1e6:.2f}) \\mu m')
+    return sigma_radial, sigma_axial
+
+
+def calc_cloud_sizes(self, T, quiet=None):
+    sigma_list = [None, None, None]
+    for i in range(3):
+        sigma_list[i] = np.sqrt(const.k * T / (self.atom.mass * self.trap_freqs[i]**2))
+    if quiet is None:
+        quiet = self.quiet
+    if not quiet:
+        print(f'Cloud size (sx, sy, sz) = (' + ', '.join([f'{sigma*1e6:.2f}' for sigma in sigma_list]) + ') \\mu m')
+    return sigma_list
