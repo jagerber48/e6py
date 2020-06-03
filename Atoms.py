@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.constants as const
-from . import E6utils
+import E6utils
 
 hbar = const.hbar
 c = const.c
@@ -123,10 +123,12 @@ class Atom:
         omega_0_D2 = self.transitions['D2'].omega_0
         detuning_D1 = omega_field - omega_0_D1
         detuning_D2 = omega_field - omega_0_D2
-        counter_detuning_D1 = omega_field + omega_0_D1
-        counter_detuning_D2 = omega_field + omega_0_D2
-        U_rotating = (hbar / 4) * (rabi_D1**2 / detuning_D1 + rabi_D2**2 / detuning_D2)
-        U_counterrotating = (hbar / 4) * (rabi_D1**2 / counter_detuning_D1 + rabi_D2**2 / counter_detuning_D2)
+        counter_detuning_D1 = - omega_field - omega_0_D1
+        counter_detuning_D2 = - omega_field - omega_0_D2
+        U_rotating = (hbar / 4) * (np.abs(rabi_D1)**2 / detuning_D1
+                                   + np.abs(rabi_D2)**2 / detuning_D2)
+        U_counterrotating = (hbar / 4) * (np.abs(rabi_D1)**2 / counter_detuning_D1
+                                          + np.abs(rabi_D2)**2 / counter_detuning_D2)
         return U_rotating + U_counterrotating
 
     def optical_potential_from_intensity(self, intensity, wavelength=None, f_field=None):

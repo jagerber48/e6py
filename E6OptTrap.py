@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.constants as const
 from functools import reduce
-from . import E6utils
-from .Atoms import Rb87_Atom
+import E6utils
+from Atoms import Rb87_Atom
 
 hbar = const.hbar
 c = const.c
@@ -89,8 +89,29 @@ class Beam:
         return waist * np.sqrt(1 + (z / zr) ** 2)
 
     @staticmethod
+    def curvature_profile_1d(z, zr):
+        return z * (1 + (zr / z)**2)
+
+    @staticmethod
+    def gouy_phase(z, zr):
+        return np.arctan(z / zr)
+
+    @staticmethod
     def w0_to_zr(w0, wavelength):
         return np.pi * w0 ** 2 / wavelength
+
+    @staticmethod
+    def zr_to_w0(zr, wavelength):
+        return np.sqrt(zr * wavelength / np. pi)
+
+    @staticmethod
+    def w0_to_theta(w0, wavelength):
+        return np.arctan(wavelength / (w0 * np.pi))
+
+    @staticmethod
+    def w0_to_NA(w0, wavelength):
+        theta = Beam.w0_to_theta(w0, wavelength)
+        return np.sin(theta)
 
     @staticmethod
     def power_to_max_intensity(P, w0_x, w0_y=None):
@@ -104,10 +125,45 @@ class Beam:
             w0_y = w0_x
         if z0_y is None:
             z0_y = z0_x
+        dz_x = z - z0_x
+        dz_y = z - z0_y
+        zr_x = Beam.w0_to_zr(w0_x, wavelength)
+        zr_y = Beam.w0_to_zr(w0_y, wavelength)
+
+        w_x = Beam.waist_profile(w0_x, wavelength, dz_x)
+        w_y = Beam.waist_profile(w0_y, wavelength, dz_y)
+        axial_profile_x = np.sqrt(w0_x / w_x)
+        axial_profile_y = np.sqrt(w0_y / w_y)
+        axial_profile = axial_profile_x * axial_profile_y
+        waist_profile_x = np.exp(-(x / w_x)**2)
+        waist_profile_y = np.exp(-(y / w_y)**2)
+        waist_profile = waist_profile_x * waist_profile_y
+
+        k = 2 * np.pi/wavelength
+
+        if dz_x == 0:
+            curvature_profile_x = 1
+        else:
+            R_x = Beam.curvature_profile_1d(dz_x, zr_x)
+            curvature_profile_x = np.exp(1j * k * (x ** 2) / (2 * R_x))
+        if dz_y == 0:
+            curvature_profile_y = 1
+        else:
+            R_y = Beam.curvature_profile_1d(dz_y, zr_y)
+            curvature_profile_y = np.exp(1j * k * (y ** 2)/(2 * R_y))
+        curvature_profile = curvature_profile_x * curvature_profile_y
+
+        phase_profile = np.exp(1j * k * (dz_x + dz_y)/2)  # Phase referenced to mean of z0_x and z0_y arbitrarily
+        gouy_phase_profile_x = np.exp(-1j * (1/2) * Beam.gouy_phase(dz_x, zr_x))
+        gouy_phase_profile_y = np.exp(-1j * (1/2) * Beam.gouy_phase(dz_y, zr_y))
+        gouy_phase_profile = gouy_phase_profile_x * gouy_phase_profile_y
+
+        field = E0 * axial_profile * waist_profile * curvature_profile * phase_profile * gouy_phase_profile
+        return field
         # Note scaling on sx and sy to convert between Gaussian variance and Gaussian beam waist
-        return E0 * (np.sqrt(w0_x / Beam.waist_profile(w0_x, wavelength, z - z0_x))
-                     * np.sqrt(w0_y / Beam.waist_profile(w0_y, wavelength, z - z0_y))
-                     * E6utils.gaussian_2d(x, y, x0=0, y0=0, sx=w0_x / np.sqrt(2), sy=w0_y / np.sqrt(2)))
+        # return E0 * (np.sqrt(w0_x / Beam.waist_profile(w0_x, wavelength, z - z0_x))
+        #              * np.sqrt(w0_y / Beam.waist_profile(w0_y, wavelength, z - z0_y))
+        #              * E6utils.gaussian_2d(x, y, x0=z0_x, y0=z0_y, sx=w0_x / np.sqrt(2), sy=w0_y / np.sqrt(2)))
 
     @staticmethod
     def gaussian_intensity_profile(x, y, z, I0, w0_x, z0_x, wavelength, w0_y=None, z0_y=None):
@@ -122,13 +178,19 @@ class Beam:
 
 
 class OptTrap:
-    def __init__(self, beams, atom=Rb87_Atom, quiet=False):
+    def __init__(self, beams, atom=Rb87_Atom, coherent=False, trap_center=(0, 0, 0), quiet=False):
         try:
             len(beams)
         except TypeError:
             beams = (beams,)
         self.beams = beams
         self.atom = atom
+        self.coherent = coherent
+        self.wavelength = None
+        if self.coherent:
+            self.check_wavelengths()
+            self.wavelength = self.beams[0].wavelength
+        self.trap_center = trap_center
         self.trap_freqs = [0, 0, 0]
         self.trap_freq_geom_mean = 0
         self.trap_depth = 0
@@ -147,7 +209,9 @@ class OptTrap:
         Trap frequency is found by numerically calculating the hessian matrix (array of 2nd derivatives) of the
         optical potential and diagonalizing to extract principle components.
         """
-        tot_pot_field = self.make_pot_field(x0=(-1e-7,) * 3, xf=(1e-7,) * 3, n_steps=(10,) * 3)
+        x0_list = [x0 - 1e-7 for x0 in self.trap_center]
+        xf_list = [x0 + 1e-7 for x0 in self.trap_center]
+        tot_pot_field = self.make_pot_field(x0=x0_list, xf=xf_list, n_steps=(10,) * 3)
         self.trap_depth = -tot_pot_field.values.min()
         hess = E6utils.hessian(tot_pot_field, x0=0, y0=0, z0=0)
         vals = np.linalg.eig(hess)[0]  # extract only eigenvalues, ignore eigenvectors
@@ -159,14 +223,34 @@ class OptTrap:
         x0 = E6utils.single_to_triple(x0)
         xf = E6utils.single_to_triple(xf)
         n_steps = E6utils.single_to_triple(n_steps)
-        tot_pot_field = E6utils.template_xr(0, x0, xf, n_steps)
+        tot_pot_field = E6utils.template_xr(0*1j, x0, xf, n_steps)
+        if self.coherent:
+            wavelength = self.wavelength
+            tot_opt_field = E6utils.template_xr(0*1j, x0, xf, n_steps)
+            for i in range(0, len(self.beams)):
+                beam = self.beams[i]
+                beam_opt_field = beam.make_e_field(x0, xf, n_steps)
+                tot_opt_field += beam_opt_field
+            tot_pot_field = tot_opt_field.pipe(lambda x: self.atom.optical_potential(x, wavelength))
+        elif not self.coherent:
+            for i in range(0, len(self.beams)):
+                beam = self.beams[i]
+                beam_opt_field = beam.make_e_field(x0, xf, n_steps)
+                beam_pot_field = beam_opt_field.pipe(lambda x: self.atom.optical_potential(x, beam.wavelength))
+                tot_pot_field += beam_pot_field
+        self.pot_field = np.real(tot_pot_field)
+        return self.pot_field
+
+    def make_e_field(self, x0=(-1e-6,) * 3, xf=(1e-6,) * 3, n_steps=(10,) * 3):
+        x0 = E6utils.single_to_triple(x0)
+        xf = E6utils.single_to_triple(xf)
+        n_steps = E6utils.single_to_triple(n_steps)
+        tot_opt_field = E6utils.template_xr(0*1j, x0, xf, n_steps)
         for i in range(0, len(self.beams)):
             beam = self.beams[i]
             beam_opt_field = beam.make_e_field(x0, xf, n_steps)
-            beam_pot_field = beam_opt_field.pipe(lambda x: self.atom.optical_potential(x, beam.wavelength))
-            tot_pot_field = tot_pot_field + beam_pot_field
-        self.pot_field = tot_pot_field
-        return self.pot_field
+            tot_opt_field += beam_opt_field
+        return tot_opt_field
 
     def calc_psd(self, N, T, quiet=None):
         # Calculate phase space density given atom number and temperature using trap parameters
@@ -181,7 +265,7 @@ class OptTrap:
         # Calculate peak density from phase space density
         if quiet is None:
             quiet = self.quiet
-        lambda_db = const.h / np.sqrt(2 * np.pi * self.atom.mass * const.k * T)
+        lambda_db = lambda_debroglie(self.atom.mass, T)
         n0 = self.calc_psd(N, T, quiet=True) / (lambda_db ** 3)
         if not quiet:
             print(f'Peak Density = {n0*(1e-2 ** 3):.1e} cm^-3')
@@ -203,6 +287,13 @@ class OptTrap:
               + ', '.join([f'{self.trap_freqs[i]/(2*np.pi):.2f}' for i in range(3)]) + ') Hz'
               )
         print(f'Geometric Mean = {self.trap_freq_geom_mean / (2 * np.pi):.2f} Hz')
+        return
+
+    def check_wavelengths(self):
+        wavelengths = [beam.wavelength for beam in self.beams]
+        if not all(wavelength == wavelengths[0] for wavelength in wavelengths):
+            raise NotImplementedError('OptTrap only supports coherent combinations of beams'
+                                      'with equal wavelengths at this time.')
         return
 
 
@@ -271,12 +362,5 @@ def cloud_size_single_beam(T, atom, power, waist, wavelength, quiet=False):
     return sigma_radial, sigma_axial
 
 
-def calc_cloud_sizes(self, T, quiet=None):
-    sigma_list = [None, None, None]
-    for i in range(3):
-        sigma_list[i] = np.sqrt(const.k * T / (self.atom.mass * self.trap_freqs[i]**2))
-    if quiet is None:
-        quiet = self.quiet
-    if not quiet:
-        print(f'Cloud size (sx, sy, sz) = (' + ', '.join([f'{sigma*1e6:.2f}' for sigma in sigma_list]) + ') \\mu m')
-    return sigma_list
+def lambda_debroglie(mass, T):
+    return const.h / np.sqrt(2 * np.pi * mass * const.k * T)
