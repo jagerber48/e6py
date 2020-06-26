@@ -209,10 +209,10 @@ class OptTrap:
         Trap frequency is found by numerically calculating the hessian matrix (array of 2nd derivatives) of the
         optical potential and diagonalizing to extract principle components.
         """
-        x0_list = [x0 - 1e-7 for x0 in self.trap_center]
-        xf_list = [x0 + 1e-7 for x0 in self.trap_center]
+        x0_list = [x0 - 1e-8 for x0 in self.trap_center]
+        xf_list = [x0 + 1e-8 for x0 in self.trap_center]
         tot_pot_field = self.make_pot_field(x0=x0_list, xf=xf_list, n_steps=(10,) * 3)
-        self.trap_depth = -tot_pot_field.values.min()
+        self.trap_depth = np.abs(tot_pot_field.values).max()
         hess = E6utils.hessian(tot_pot_field, x0=0, y0=0, z0=0)
         vals = np.linalg.eig(hess)[0]  # extract only eigenvalues, ignore eigenvectors
         self.trap_freqs = np.sqrt(vals / self.atom.mass)
@@ -338,14 +338,40 @@ def ODT_params_analytic(atom, power, waist, wavelength, quiet=False):
     I0 = Beam.power_to_max_intensity(power, waist)
     zr = Beam.w0_to_zr(waist, wavelength)
     trap_depth = np.abs(atom.optical_potential_from_intensity(I0, wavelength))
-    omega_radial = np.sqrt(4*trap_depth/(atom.mass*waist**2))
-    omega_axial = np.sqrt(2*trap_depth/(atom.mass*zr**2))
+    omega_radial = np.sqrt(4 * trap_depth / (atom.mass*waist**2))
+    omega_axial = np.sqrt(2 * trap_depth / (atom.mass*zr**2))
     trap_freqs = np.array([omega_radial, omega_radial, omega_axial])
     omega_geom_mean = np.prod(trap_freqs) ** (1 / 3)
     if not quiet:
-        print(f'Trap Depth = {(trap_depth / const.h) * 1e-6:.2f} MHz = {(trap_depth / const.k) * 1e6:.2f} \\mu K')
-        print('Trap Frequencies = \n'
-              + '\n'.join([f'{trap_freqs[i] / (2 * np.pi):.2f} Hz' for i in range(3)])
+        print(f'Trap parameters for running wave Gaussian beam with P = {power:.2f} W, waist = {waist*1e6:.2f} \\mu m,'
+              f'wavelength = {wavelength*1e9:.2f} nm:')
+        print(f'Trap Depth = {(trap_depth/const.h)*1e-6:.2f} MHz = {(trap_depth/const.k)*1e6:.2f} \\mu K')
+        print('Trap Frequencies (wx, wy, wz) = ('
+              + ', '.join([f'{trap_freqs[i]/(2*np.pi):.2f}' for i in range(3)]) + ') Hz'
+              )
+        print(f'Geometric Mean = {omega_geom_mean / (2 * np.pi):.2f} Hz')
+    return trap_depth, omega_radial, omega_axial
+
+
+def lattice_params_analytic(atom, power, waist, wavelength, quiet=False):
+    # Analytic calculation of trap depth and frequencies for Gaussian lattice ODT
+    # Note that the power is the power of ONE of the beams forming the lattice only.
+    I0 = Beam.power_to_max_intensity(power, waist)
+    k = 2 * np.pi / wavelength
+    trap_depth = 4 * np.abs(atom.optical_potential_from_intensity(I0, wavelength))
+    # Factor of 4 compared to the trap depth comes from:
+    # First factor of 2 from the fact that there is one beam from each direction
+    # Second factor of 2 from the fact that these two beams exhibit constructive interference at trap maximum
+    omega_radial = np.sqrt(4 * trap_depth / (atom.mass*waist**2))
+    omega_axial = np.sqrt(2 * trap_depth * k**2 / atom.mass)
+    trap_freqs = np.array([omega_radial, omega_radial, omega_axial])
+    omega_geom_mean = np.prod(trap_freqs) ** (1 / 3)
+    if not quiet:
+        print(f'Trap parameters for Gaussian beam lattice with single beam power P = {power:.2f} W, '
+              f'waist = {waist*1e6:.2f} \\mu m, wavelength = {wavelength*1e9:.2f} nm:')
+        print(f'Trap Depth = {(trap_depth/const.h)*1e-6:.2f} MHz = {(trap_depth/const.k)*1e6:.2f} \\mu K')
+        print('Trap Frequencies (wx, wy, wz) = ('
+              + ', '.join([f'{trap_freqs[i]/(2*np.pi):.2f}' for i in range(3)]) + ') Hz'
               )
         print(f'Geometric Mean = {omega_geom_mean / (2 * np.pi):.2f} Hz')
     return trap_depth, omega_radial, omega_axial

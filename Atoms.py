@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.constants as const
+from sympy.physics.wigner import clebsch_gordan, wigner_3j, wigner_6j
 import E6utils
 
 hbar = const.hbar
@@ -7,13 +8,13 @@ c = const.c
 ep0 = const.epsilon_0
 
 
-class Transition:
-
+class FineTransition:
     def __init__(self, transition_data):
         self.data = transition_data
         self.name = self.data['name']
         self.Jg = self.data['Jg']
         self.Je = self.data['Je']
+        self.Inuc = self.data['Inuc']
         self.frequency = self.data['frequency']
         self.omega_0 = 2*np.pi*self.frequency
         self.lifetime = self.data['lifetime']
@@ -64,11 +65,18 @@ class Transition:
             d = self.dJJ
         return (c*ep0*hbar**2*self.gamma**2)/(4*d**2)
 
+    def calc_hyperfine_transition_dipole(self, Fg, Fe, mFg, mFe, q):
+        dFF = (self.dJJ * (-1)**(Fe + self.Jg + 1 + self.Inuc) * np.sqrt((2 * Fe + 1) * (2 * self.Jg + 1))
+               * wigner_6j(self.Jg, self.Je, 1, Fe, Fg, self.Inuc).evalf())
+        d_hf = dFF * (-1)**(Fe - 1 + mFg) * np.sqrt(2 * Fg + 1) * wigner_3j(Fe, 1, Fg, mFe, q, -mFg).evalf()
+        return d_hf
+
 
 Rb87_D2_transition_data = {
     'name': 'D2',
     'Jg': 0.5,
     'Je': 1.5,
+    'Inuc': 1.5,
     'frequency': 384.2304844685e12,
     'lifetime': 26.2348e-9
 }
@@ -76,11 +84,12 @@ Rb87_D1_transition_data = {
     'name': 'D1',
     'Jg': 0.5,
     'Je': 0.5,
+    'Inuc' : 1.5,
     'frequency': 377.107463380e12,
     'lifetime': 27.679e-9
 }
-Rb87_D2_transition = Transition(Rb87_D2_transition_data)
-Rb87_D1_transition = Transition(Rb87_D1_transition_data)
+Rb87_D2_transition = FineTransition(Rb87_D2_transition_data)
+Rb87_D1_transition = FineTransition(Rb87_D1_transition_data)
 Rb87_data = {
     'is_boson': True,
     'mass': 1.443160648e-25,
