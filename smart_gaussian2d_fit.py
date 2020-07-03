@@ -91,6 +91,7 @@ def create_fit_struct(img, popt, pcov, conf_level, dof):
 
 
 def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
+    # TODO: Catch error if center of fit is outside plot range
     img = fit_struct['data_img']
     model_img = fit_struct['model_img']
     x_range = img.shape[0]

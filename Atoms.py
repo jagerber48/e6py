@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.constants as const
 from sympy.physics.wigner import clebsch_gordan, wigner_3j, wigner_6j
-import E6utils
+from . import E6utils
 
 hbar = const.hbar
 c = const.c

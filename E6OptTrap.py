@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.constants as const
 from functools import reduce
-import E6utils
-from Atoms import Rb87_Atom
+from . import E6utils
+from .Atoms import Rb87_Atom
 
 hbar = const.hbar
 c = const.c
