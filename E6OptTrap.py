@@ -9,6 +9,7 @@ c = const.c
 ep0 = const.epsilon_0
 
 
+# noinspection PyPep8Naming
 class Beam:
     # Class to model an optical gaussian beam
     def __init__(self, waist_x, power, wavelength, waist_y=None, z0_x=0, z0_y=0):
@@ -177,6 +178,7 @@ class Beam:
                      * E6utils.gaussian_2d(x, y, x0=0, y0=0, sx=w0_x / 2, sy=w0_y / 2))
 
 
+# noinspection PyPep8Naming
 class OptTrap:
     def __init__(self, beams, atom=Rb87_Atom, coherent=False, trap_center=(0, 0, 0), quiet=False):
         try:

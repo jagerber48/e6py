@@ -8,6 +8,7 @@ c = const.c
 ep0 = const.epsilon_0
 
 
+# noinspection PyPep8Naming
 class FineTransition:
     def __init__(self, transition_data):
         self.data = transition_data
@@ -84,7 +85,7 @@ Rb87_D1_transition_data = {
     'name': 'D1',
     'Jg': 0.5,
     'Je': 0.5,
-    'Inuc' : 1.5,
+    'Inuc': 1.5,
     'frequency': 377.107463380e12,
     'lifetime': 27.679e-9
 }
@@ -97,6 +98,7 @@ Rb87_data = {
 }
 
 
+# noinspection PyPep8Naming
 class Atom:
     def __init__(self, atom_data, quiet=True):
         self.data = atom_data

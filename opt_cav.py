@@ -15,6 +15,7 @@ class Mirror:
         self.loss = losses_ppm*1e-6
 
 
+# noinspection PyPep8Naming
 class OpticalCavity:
     def __init__(self, mirror_1, mirror_2, length):
         self.mirror_1 = mirror_1
@@ -65,6 +66,7 @@ class OpticalCavity:
         return 2 * np.pi / total_losses
 
 
+# noinspection PyPep8Naming
 class CavityMode:
     def __init__(self, cavity, wavelength):
         self.cavity = cavity
@@ -97,7 +99,7 @@ class CavityMode:
         power_circulating = (2 / np.pi) * eta_in * finesse * power
         return E6OptTrap.lattice_params_analytic(atom, power_circulating, self.w0, self.wavelength, quiet=quiet)
 
-    def input_power_to_nbar(self, power, atom=Rb87_Atom, quiet=True):
+    def input_power_to_nbar(self, power):
         eta_in = self.cavity.input_efficiency
         kappa = self.cavity.kappa
         omega = 2 * np.pi * c / self.wavelength
@@ -106,7 +108,6 @@ class CavityMode:
 
 
 def calc_e6_coop(cavity):
-    atom = Rb87_Atom
     dge = Rb87_Atom.transitions['D2'].calc_hyperfine_transition_dipole(2, 3, 2, 3, -1)
     omega = Rb87_Atom.transitions['D2'].omega_0
     probe_mode = CavityMode(cavity, wavelength=780e-9)
@@ -115,4 +116,3 @@ def calc_e6_coop(cavity):
     gamma = Rb87_Atom.transitions['D2'].gamma
     coop = 4 * g**2 / (kappa * gamma)
     return coop
-
