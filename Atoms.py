@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.constants as const
-from sympy.physics.wigner import clebsch_gordan, wigner_3j, wigner_6j
-from . import E6utils
+from sympy.physics.wigner import wigner_3j, wigner_6j
+from E6py import E6utils
 
 hbar = const.hbar
 c = const.c
@@ -30,8 +30,8 @@ class FineTransition:
         state Jg and Je. This element can be calculated from a measured transition lifetime.
         See Steck Eq. (38)
         """
-        degeneracyFactor = (2*self.Je+1)/(2*self.Jg+1)
-        return np.sqrt((3*np.pi*ep0*hbar*c**3*self.gamma)/(self.omega_0**3))*np.sqrt(degeneracyFactor)
+        degeneracy_factor = (2*self.Je+1)/(2*self.Jg+1)
+        return np.sqrt((3*np.pi*ep0*hbar*c**3*self.gamma)/(self.omega_0**3))*np.sqrt(degeneracy_factor)
 
     def dJJ_to_dEff(self):
         """ Convert reduced dipole element to effect far-detuned dipole element

@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.constants as const
-import E6OptTrap
-from Atoms import Rb87_Atom
+from E6py import E6OptTrap
+from E6py.Atoms import Rb87_Atom
 
 hbar = const.hbar
 c = const.c
@@ -97,8 +97,15 @@ class CavityMode:
         power_circulating = (2 / np.pi) * eta_in * finesse * power
         return E6OptTrap.lattice_params_analytic(atom, power_circulating, self.w0, self.wavelength, quiet=quiet)
 
+    def input_power_to_nbar(self, power, atom=Rb87_Atom, quiet=True):
+        eta_in = self.cavity.input_efficiency
+        kappa = self.cavity.kappa
+        omega = 2 * np.pi * c / self.wavelength
+        nbar = (1 / (hbar * omega)) * (4 * eta_in / kappa) * power
+        return nbar
 
-def calc_E6_coop(cavity):
+
+def calc_e6_coop(cavity):
     atom = Rb87_Atom
     dge = Rb87_Atom.transitions['D2'].calc_hyperfine_transition_dipole(2, 3, 2, 3, -1)
     omega = Rb87_Atom.transitions['D2'].omega_0
