@@ -98,60 +98,67 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
     y_range = img.shape[1]
     x0 = int(round(fit_struct['x0']['val']))
     y0 = int(round(fit_struct['y0']['val']))
+    sx = fit_struct['sx']['val']
+    sy = fit_struct['sy']['val']
     img_min = np.min([img.min(), model_img.min()])
     img_max = np.max([img.max(), model_img.max()])
-
-    x_line_cut_dat = img[:, y0]
-    x_line_cut_model = model_img[:, y0]
-    y_line_cut_dat = img[x0, :]
-    y_line_cut_model = model_img[x0, :]
-
-    x_int_cut_dat = np.sum(img, axis=1)/y_range
-    x_int_cut_model = np.sum(model_img, axis=1)/y_range
-    y_int_cut_dat = np.sum(img, axis=0)/x_range
-    y_int_cut_model = np.sum(model_img, axis=0)/x_range
 
     # Plotting
     fig = plt.figure(figsize=(8, 8))
 
-    ax = fig.add_subplot(2, 2, 1, position=[0.1, 0.5, 0.25, 0.35])
-    ax.imshow(img, vmin=img_min, vmax=img_max)
-    ax.axvline(y0, linestyle='--')
-    ax.axhline(x0, linestyle='--')
-    ax.set_aspect(x_range / y_range)
-    ax.xaxis.tick_top()
-    ax.set_xlabel('Horizontal Position')
-    ax.xaxis.set_label_position('top')
-    ax.set_ylabel('Vertical Position')
+    # Data 2D Plot
+    ax_data = fig.add_subplot(2, 2, 1, position=[0.1, 0.5, 0.25, 0.35])
+    ax_data.imshow(img, vmin=img_min, vmax=img_max, cmap='binary')
+    ax_data.set_aspect(x_range / y_range)
+    ax_data.xaxis.tick_top()
+    ax_data.set_xlabel('Horizontal Position')
+    ax_data.xaxis.set_label_position('top')
+    ax_data.set_ylabel('Vertical Position')
 
-    ax = fig.add_subplot(2, 2, 4, position=[0.4, 0.1, 0.25, 0.35])
-    ax.imshow(model_img, vmin=img_min, vmax=img_max)
-    ax.axvline(y0, linestyle='--')
-    ax.axhline(x0, linestyle='--')
-    ax.set_aspect(x_range / y_range)
-    ax.yaxis.tick_right()
-    ax.set_xlabel('Horizontal Position')
-    ax.set_ylabel('Vertical Position')
-    ax.yaxis.set_label_position('right')
+    # Fit 2D Plot
+    ax_fit = fig.add_subplot(2, 2, 4, position=[0.4, 0.1, 0.25, 0.35])
+    ax_fit.imshow(model_img, vmin=img_min, vmax=img_max, cmap='binary')
+    ax_fit.set_aspect(x_range / y_range)
+    ax_fit.yaxis.tick_right()
+    ax_fit.set_xlabel('Horizontal Position')
+    ax_fit.set_ylabel('Vertical Position')
+    ax_fit.yaxis.set_label_position('right')
 
-    ax = fig.add_subplot(2, 2, 2, position=[0.4, 0.5, 0.25, 0.35])
-    ax.plot(x_int_cut_dat, range(x_range))
-    ax.plot(x_int_cut_model, range(x_range))
-    ax.plot(x_line_cut_dat, range(x_range))
-    ax.plot(x_line_cut_model, range(x_range))
-    ax.invert_yaxis()
-    ax.yaxis.tick_right()
-    ax.xaxis.tick_top()
-    ax.set_xlabel('Integrated Intensity')
-    ax.xaxis.set_label_position('top')
+    # X Linecut Plot
+    ax_x_line = fig.add_subplot(2, 2, 2, position=[0.4, 0.5, 0.25, 0.35])
+    x_int_cut_dat = np.sum(img, axis=1) / np.sqrt(2 * np.pi * sy**2)
+    x_int_cut_model = np.sum(model_img, axis=1) / np.sqrt(2 * np.pi * sy**2)
+    ax_x_line.plot(x_int_cut_dat, range(x_range), 'o', zorder=1)
+    ax_x_line.plot(x_int_cut_model, range(x_range), zorder=2)
+    ax_x_line.invert_yaxis()
+    ax_x_line.yaxis.tick_right()
+    ax_x_line.xaxis.tick_top()
+    ax_x_line.set_xlabel('Integrated Intensity')
+    ax_x_line.xaxis.set_label_position('top')
+    try:
+        # x_line_cut_dat = img[:, y0]
+        ax_data.axvline(y0, linestyle='--')
+        ax_fit.axvline(y0, linestyle='--')
+        # ax_x_line.plot(x_line_cut_dat, range(x_range), 'o', zorder=0)
+    except IndexError as e:
+        print(e)
 
-    ax = fig.add_subplot(2, 2, 3, position=[0.1, 0.1, 0.25, 0.35])
-    ax.plot(range(y_range), y_int_cut_dat)
-    ax.plot(range(y_range), y_int_cut_model)
-    ax.plot(range(y_range), y_line_cut_dat)
-    ax.plot(range(y_range), y_line_cut_model)
-    ax.invert_yaxis()
-    ax.set_ylabel('Integrated Intensity')
+    # Y Linecut Plot
+    ax_y_line = fig.add_subplot(2, 2, 3, position=[0.1, 0.1, 0.25, 0.35])
+    y_int_cut_dat = np.sum(img, axis=0) / np.sqrt(2 * np.pi * sx**2)
+    y_int_cut_model = np.sum(model_img, axis=0) / np.sqrt(2 * np.pi * sx**2)
+    ax_y_line.plot(range(y_range), y_int_cut_dat, 'o', zorder=1)
+    ax_y_line.plot(range(y_range), y_int_cut_model, zorder=2)
+    ax_y_line.invert_yaxis()
+    ax_y_line.set_ylabel('Integrated Intensity')
+
+    try:
+        # y_line_cut_dat = img[x0, :]
+        ax_data.axhline(x0, linestyle='--')
+        ax_fit.axhline(x0, linestyle='--')
+        # ax_y_line.plot(range(y_range), y_line_cut_dat, 'o', zorder=0)
+    except IndexError as e:
+        print(e)
 
     # Write parameter values
     # popt = fit_struct['popt']
@@ -162,6 +169,7 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
         param = fit_struct[key]
         print_str += f"{key} = {param['val']:.1f} +- {param['err_half_range']:.3f}\n"
     fig.text(.8, .5, print_str)
+
     fit_struct['fit_fig'] = fig
 
     if save_name is not None:
@@ -209,13 +217,18 @@ def fit_gaussian2d(img, zoom=1.0, quiet=True, show_plot=True, save_name=None,
     if not quiet:
         print(f'fit time = {t_fit_stop - t_fit_start:.2f} s')
 
+    # noinspection PyTypeChecker
     popt = lsq_struct['x']
+    # noinspection PyTypeChecker
     jac = lsq_struct['jac']
+    # noinspection PyTypeChecker
+    cost = lsq_struct['cost']
 
     n = img_downsampled.shape[0]*img_downsampled.shape[1]  # Number of data points
     p = popt.size  # Number of fit parameters
     dof = n - p
-    s2 = 2*lsq_struct['cost']/dof
+    # noinspection PyTypeChecker
+    s2 = 2 * cost / dof
     cov = s2 * np.linalg.inv(np.matmul(jac.T, jac))
 
     fit_struct = create_fit_struct(img, popt, cov, conf_level, dof)
