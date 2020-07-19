@@ -1,10 +1,39 @@
 import numpy as np
 import xarray as xr
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 import scipy.constants as const
 
 hbar = const.hbar
 c = const.c
 ep0 = const.epsilon_0
+
+
+def lin_fit_func(x, *params):
+    m = params[0]
+    b = params[1]
+    return m * x + b
+
+
+def lin_fit(x_data, y_data, p0=(0, 1), x_label='', y_label='Signal', x_units='s', y_units='a.u.'):
+    # TODO: Return error bars
+    popt, pcov = curve_fit(lin_fit_func, x_data, y_data, p0=p0)
+    print(f'Slope = {popt[0]:.2f} {y_units}/{x_units}')
+    print(f'Offset = {popt[1]:.2f} {y_units}')
+
+    x_min = np.min(x_data)
+    x_max = np.max(x_data)
+    x_range = (1 / 2) * (x_max - x_min)
+    x_center = (1 / 2) * (x_max + x_min)
+    plot_min = x_center - 1.1 * x_range
+    plot_max = x_center + 1.1 * x_range
+    plot_x_list = np.linspace(plot_min, plot_max, 100)
+    plt.plot(plot_x_list, lin_fit_func(plot_x_list, *popt))
+    plt.plot(x_data, y_data, '.', markersize=10)
+    plt.xlabel(f'{x_label} ({x_units})')
+    plt.ylabel(f'{y_label} ({y_units})')
+    plt.show()
+    return popt, pcov
 
 
 def rot_mat(axis=(1, 0, 0), angle=0.0):
@@ -65,22 +94,26 @@ def hessian(da, x0, y0, z0):
     return hess
 
 
+# noinspection PyPep8Naming
 def gaussian_1d(x, x0=0.0, sx=1.0, A=1.0, B=0.0):
     return A * np.exp(-(1/2)*((x-x0)/sx)**2) + B
 
 
+# noinspection PyPep8Naming
 def gaussian_2d(x, y, x0=0.0, y0=0.0, sx=1.0, sy=1.0, A=1.0, B=0.0, theta=0.0):
     rx = np.cos(np.radians(theta))*(x-x0) - np.sin(np.radians(theta))*(y-y0)
     ry = np.sin(np.radians(theta))*(x-x0) + np.cos(np.radians(theta))*(y-y0)
     return A * np.exp(-(1/2)*((rx/sx)**2 + ((ry/sy)**2))) + B
 
 
+# noinspection PyPep8Naming
 def parabolic_2d(x, y, x0=0.0, y0=0.0, parx=1.0, pary=1.0, A=1.0, B=0.0, theta=0.0):
     rx = np.cos(np.radians(theta)) * (x - x0) - np.sin(np.radians(theta)) * (y - y0)
     ry = np.sin(np.radians(theta)) * (x - x0) + np.cos(np.radians(theta)) * (y - y0)
     return A * np.maximum(1-(rx/parx)**2-(ry/pary)**2, 0)**1.5 + B
 
 
+# noinspection PyPep8Naming
 def bimodal_2d(x, y, x0=0.0, y0=0.0, sx=1.0, sy=1.0, parx=0.1, pary=0.1,
                peakG=1, peakP=1, B=0, theta=0):
     tot = B + gaussian_2d(x, y, x0, y0, sx, sy, peakG, 0, theta) \
@@ -123,13 +156,13 @@ def template_xr(value=0, x0=(-1,)*3, xf=(1,)*3, n_steps=(10,)*3):
     x_coord = np.linspace(x0[0], xf[0], n_steps[0])
     y_coord = np.linspace(x0[1], xf[1], n_steps[1])
     z_coord = np.linspace(x0[2], xf[2], n_steps[2])
-    template_xr = xr.DataArray(value,
-                            coords=[
+    output_xr = xr.DataArray(value,
+                             coords=[
                                     ('x', x_coord),
                                     ('y', y_coord),
                                     ('z', z_coord)
                                     ])
-    return template_xr
+    return output_xr
 
 
 def resize_range(rmin=0, rmax=1, scale=1.1):
@@ -156,6 +189,7 @@ def img_moments(img):
     return x0, y0, sx, sy
 
 
+# noinspection PyPep8Naming
 def e_field_to_intensity(E):
     return (1/2)*c*ep0*E**2
 

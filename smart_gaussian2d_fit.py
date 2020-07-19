@@ -7,6 +7,7 @@ import time
 import matplotlib.pyplot as plt
 
 
+# noinspection PyPep8Naming
 def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, theta=0):
     rx = np.cos(np.radians(theta))*(x-x0) - np.sin(np.radians(theta))*(y-y0)
     ry = np.sin(np.radians(theta))*(x-x0) + np.cos(np.radians(theta))*(y-y0)
@@ -31,6 +32,7 @@ def img_moments(img):
     return x0, y0, sx, sy
 
 
+# noinspection PyPep8Naming
 def get_guess_values(img, quiet):
     # Get fit guess values
     x_range = img.shape[0]
@@ -182,6 +184,7 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
     return
 
 
+# noinspection PyTypeChecker
 def fit_gaussian2d(img, zoom=1.0, quiet=True, show_plot=True, save_name=None,
                    conf_level=erf(1 / np.sqrt(2))):
     """
