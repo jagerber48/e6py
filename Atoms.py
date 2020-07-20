@@ -118,5 +118,54 @@ class Atom:
     def optical_potential_from_intensity(self, intensity, wavelength=None, f_field=None):
         return self.optical_potential(E6utils.intensity_to_e_field(intensity), wavelength, f_field)
 
+Rb87_D2_transition_data = {
+    'name': 'D2',
+    'Jg': 0.5,
+    'Je': 1.5,
+    'Inuc': 1.5,
+    'frequency': 384.2304844685e12,
+    'lifetime': 26.2348e-9,
+    'reference': 'Steck D Line Data'
+}
+Rb87_D1_transition_data = {
+    'name': 'D1',
+    'Jg': 0.5,
+    'Je': 0.5,
+    'Inuc': 1.5,
+    'frequency': 377.107463380e12,
+    'lifetime': 27.679e-9,
+    'reference': 'Steck D Line Data'
+}
+Rb87_5P32_to_4D32_transition_data = {
+    'name': '5P32_to_4De32',
+    'Jg': 1.5,
+    'Je': 1.5,
+    'Inuc': 1.5,
+    'frequency': c / 1529.25e-9,
+    'lifetime': 1 / 1.864e6,
+    'reference': 'PhysRevA 83 052508 (2011)'
+}
+Rb87_5P32_to_4D12_transition_data = {
+    'name': '5P32_to_4De12',
+    'Jg': 1.5,
+    'Je': 0.5,
+    'Inuc': 1.5,
+    'frequency': c / 1529.37e-9,
+    'lifetime': 1 / 1.119e7,
+    'reference': 'PhysRevA 83 052508 (2011)'
+}
+Rb87_D2_transition = FineTransition(Rb87_D2_transition_data)
+Rb87_D1_transition = FineTransition(Rb87_D1_transition_data)
+Rb87_5P32_to_4D32_transition = FineTransition(Rb87_5P32_to_4D32_transition_data)
+Rb87_5P32_to_4D12_transition = FineTransition(Rb87_5P32_to_4D12_transition_data)
+
+Rb87_data = {
+    'is_boson': True,
+    'mass': 1.443160648e-25,
+    'transitions': {'D2': Rb87_D2_transition,
+                    'D1': Rb87_D1_transition,
+                    '5P32_to_4D32': Rb87_5P32_to_4D32_transition,
+                    '5P32_to_4D12': Rb87_5P32_to_4D12_transition}
+}
 
 Rb87_Atom = Atom(Rb87_data)
