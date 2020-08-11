@@ -36,6 +36,39 @@ def lin_fit(x_data, y_data, p0=(0, 1), x_label='', y_label='Signal', x_units='s'
     return popt, pcov
 
 
+def lorentzian_fit_function(x, *params):
+    delta_f = params[0]
+    f0 = params[1]
+    amplitude = params[2]
+    offset = params[3]
+    delta_f_hwhm = delta_f / 2
+    detuning = x - f0
+    return amplitude * (delta_f_hwhm**2) / (delta_f_hwhm**2 + detuning**2) + offset
+
+
+def lor_fit(x_data, y_data, p0=(1, 0, 1, 0), x_label='Frequency', y_label='Signal', x_units='Hz', y_units='a.u.'):
+    # TODO: Return error bars
+    popt, pcov = curve_fit(lorentzian_fit_function, x_data, y_data, p0=p0)
+    print(f'Linewidth (FWHM) = {popt[0]:.2f} {x_units}')
+    print(f'Center Frequency = {popt[1]:.2f} {x_units}')
+    print(f'Amplitude = {popt[2]:.2f} {y_units}')
+    print(f'Offset = {popt[3]:.2f} {y_units}')
+
+    x_min = np.min(x_data)
+    x_max = np.max(x_data)
+    x_range = (1 / 2) * (x_max - x_min)
+    x_center = (1 / 2) * (x_max + x_min)
+    plot_min = x_center - 1.1 * x_range
+    plot_max = x_center + 1.1 * x_range
+    plot_x_list = np.linspace(plot_min, plot_max, 100)
+    plt.plot(plot_x_list, lorentzian_fit_function(plot_x_list, *popt))
+    plt.plot(x_data, y_data, '.', markersize=10)
+    plt.xlabel(f'{x_label} ({x_units})')
+    plt.ylabel(f'{y_label} ({y_units})')
+    plt.show()
+    return popt, pcov
+
+
 def rot_mat(axis=(1, 0, 0), angle=0.0):
     """
     :param axis: axis of rotation (3D vector)
