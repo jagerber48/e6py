@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.constants as const
-from E6py import E6OptTrap
-from E6py.Atoms import Rb87_Atom
+from . import e6opttrap
+from .atoms import Rb87_Atom
 
 hbar = const.hbar
 c = const.c
@@ -84,7 +84,7 @@ class CavityMode:
             * (g2 / (g1 * (1 - g1 * g2)))**(1/4)  # Waist on first mirror
         self.w2 = np.sqrt(self.wavelength * L / np.pi) \
             * (g1 / (g2 * (1 - g1 * g2)))**(1/4)  # Waist on second mirror
-        self.theta = E6OptTrap.Beam.w0_to_theta(self.w0, self.wavelength)  # Beam divergence angle
+        self.theta = e6opttrap.Beam.w0_to_theta(self.w0, self.wavelength)  # Beam divergence angle
         self.NA = np.sin(self.theta)  # Beam divergence numerical aperture
 
         self.mode_volume = np.pi/4 * self.w0**2 * self.cavity.length
@@ -97,7 +97,7 @@ class CavityMode:
         eta_in = self.cavity.input_efficiency
         finesse = self.cavity.finesse
         power_circulating = (2 / np.pi) * eta_in * finesse * power
-        return E6OptTrap.lattice_params_analytic(atom, power_circulating, self.w0, self.wavelength, quiet=quiet)
+        return e6opttrap.lattice_params_analytic(atom, power_circulating, self.w0, self.wavelength, quiet=quiet)
 
     def input_power_to_nbar(self, power):
         eta_in = self.cavity.input_efficiency

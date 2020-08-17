@@ -4,7 +4,7 @@ from scipy.optimize import least_squares
 import time
 import matplotlib.pyplot as plt
 # from .E6utils import gaussian_2d_s as gaussian_2d
-from .E6utils import bimodal_2d, img_moments, gaussian_2d, parabolic_2d
+from .e6utils import bimodal_2d, img_moments, gaussian_2d, parabolic_2d
 
 
 def smart_bimodal2d_fit(img, dec_rate=None, downsample=False, quiet=True, save=False, filename='test.png'):

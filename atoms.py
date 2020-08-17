@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.constants as const
 from sympy.physics.wigner import wigner_3j, wigner_6j
-from E6py import E6utils
+from . import e6utils
 
 hbar = const.hbar
 c = const.c
@@ -91,7 +91,7 @@ class Atom:
         return rabi_freq
 
     def rabi_freq_from_intensity(self, intensity, transition_name='D2'):
-        return self.rabi_freq(E6utils.intensity_to_e_field(intensity), transition_name)
+        return self.rabi_freq(e6utils.intensity_to_e_field(intensity), transition_name)
 
     def optical_potential(self, e_field, wavelength=None, f_field=None):
         # Convert an electric field into an optical potential
@@ -116,7 +116,7 @@ class Atom:
         return U_rotating + U_counterrotating
 
     def optical_potential_from_intensity(self, intensity, wavelength=None, f_field=None):
-        return self.optical_potential(E6utils.intensity_to_e_field(intensity), wavelength, f_field)
+        return self.optical_potential(e6utils.intensity_to_e_field(intensity), wavelength, f_field)
 
 Rb87_D2_transition_data = {
     'name': 'D2',

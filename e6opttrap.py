@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.constants as const
 from functools import reduce
-from E6py import E6utils
-from E6py.Atoms import Rb87_Atom
+from . import e6utils
+from .atoms import Rb87_Atom
 
 hbar = const.hbar
 c = const.c
@@ -19,7 +19,7 @@ class Beam:
         self.waist_y = waist_y
         self.power = power
         self.I0 = self.power_to_max_intensity(self.power, self.waist_x, self.waist_y)
-        self.E0 = E6utils.intensity_to_e_field(self.I0)
+        self.E0 = e6utils.intensity_to_e_field(self.I0)
         self.wavelength = wavelength
         self.z0_x = z0_x
         self.z0_y = z0_y
@@ -55,7 +55,7 @@ class Beam:
         :param n_steps: Tuple of (nx, ny, nz) number of steps
         :return: xarray of spatial field profile
         """
-        self.field = E6utils.func3d_xr(self.beam_field_profile, x0, xf, n_steps)
+        self.field = e6utils.func3d_xr(self.beam_field_profile, x0, xf, n_steps)
         return self.field
 
     def make_intensity_field(self, x0=(-1, -1, -1), xf=(1, 1, 1), n_steps=(10, 10, 10)):
@@ -65,22 +65,22 @@ class Beam:
         :param n_steps: Tuple of (nx, ny, nz) number of steps
         :return: xarray of spatial field profile
         """
-        self.field = E6utils.func3d_xr(self.beam_intensity_profile, x0, xf, n_steps)
+        self.field = e6utils.func3d_xr(self.beam_intensity_profile, x0, xf, n_steps)
         return self.field
 
     def translate(self, trans_vec):
         # Add translation transformation to self.trans_list
-        self.trans_list.append(lambda v: E6utils.translate_vec(v, -trans_vec))
+        self.trans_list.append(lambda v: e6utils.translate_vec(v, -trans_vec))
         return self
 
     def transform(self, trans_mat):
         # Add matrix transformation to self.trans_list
-        self.trans_list.append(lambda v: E6utils.transform_vec(v, trans_mat))
+        self.trans_list.append(lambda v: e6utils.transform_vec(v, trans_mat))
         return self
 
     def rotate(self, axis=(1, 0, 0), angle=0.0):
         # Add rotation transformation to self.trans_list
-        rot_mat = E6utils.rot_mat(axis, -angle)
+        rot_mat = e6utils.rot_mat(axis, -angle)
         self.transform(rot_mat)
         return self
 
@@ -175,7 +175,7 @@ class Beam:
         # Note scaling on sx and sy to convert between Gaussian variance and Gaussian beam waist
         return I0 * ((w0_x / Beam.waist_profile(w0_x, wavelength, z - z0_x))
                      * (w0_y / Beam.waist_profile(w0_y, wavelength, z - z0_y))
-                     * E6utils.gaussian_2d(x, y, x0=0, y0=0, sx=w0_x / 2, sy=w0_y / 2))
+                     * e6utils.gaussian_2d(x, y, x0=0, y0=0, sx=w0_x / 2, sy=w0_y / 2))
 
 
 # noinspection PyPep8Naming
@@ -215,20 +215,20 @@ class OptTrap:
         xf_list = [x0 + 1e-8 for x0 in self.trap_center]
         tot_pot_field = self.make_pot_field(x0=x0_list, xf=xf_list, n_steps=(10,) * 3)
         self.trap_depth = np.abs(tot_pot_field.values).max()
-        hess = E6utils.hessian(tot_pot_field, x0=0, y0=0, z0=0)
+        hess = e6utils.hessian(tot_pot_field, x0=0, y0=0, z0=0)
         vals = np.linalg.eig(hess)[0]  # extract only eigenvalues, ignore eigenvectors
         self.trap_freqs = np.sqrt(vals / self.atom.mass)
         self.trap_freq_geom_mean = np.prod(self.trap_freqs) ** (1 / 3)
         return self.trap_depth, self.trap_freqs
 
     def make_pot_field(self, x0=(-1e-6,) * 3, xf=(1e-6,) * 3, n_steps=(10,) * 3):
-        x0 = E6utils.single_to_triple(x0)
-        xf = E6utils.single_to_triple(xf)
-        n_steps = E6utils.single_to_triple(n_steps)
-        tot_pot_field = E6utils.template_xr(0*1j, x0, xf, n_steps)
+        x0 = e6utils.single_to_triple(x0)
+        xf = e6utils.single_to_triple(xf)
+        n_steps = e6utils.single_to_triple(n_steps)
+        tot_pot_field = e6utils.template_xr(0 * 1j, x0, xf, n_steps)
         if self.coherent:
             wavelength = self.wavelength
-            tot_opt_field = E6utils.template_xr(0*1j, x0, xf, n_steps)
+            tot_opt_field = e6utils.template_xr(0 * 1j, x0, xf, n_steps)
             for i in range(0, len(self.beams)):
                 beam = self.beams[i]
                 beam_opt_field = beam.make_e_field(x0, xf, n_steps)
@@ -244,10 +244,10 @@ class OptTrap:
         return self.pot_field
 
     def make_e_field(self, x0=(-1e-6,) * 3, xf=(1e-6,) * 3, n_steps=(10,) * 3):
-        x0 = E6utils.single_to_triple(x0)
-        xf = E6utils.single_to_triple(xf)
-        n_steps = E6utils.single_to_triple(n_steps)
-        tot_opt_field = E6utils.template_xr(0*1j, x0, xf, n_steps)
+        x0 = e6utils.single_to_triple(x0)
+        xf = e6utils.single_to_triple(xf)
+        n_steps = e6utils.single_to_triple(n_steps)
+        tot_opt_field = e6utils.template_xr(0 * 1j, x0, xf, n_steps)
         for i in range(0, len(self.beams)):
             beam = self.beams[i]
             beam_opt_field = beam.make_e_field(x0, xf, n_steps)
@@ -304,7 +304,7 @@ def make_grav_pot(mass=Rb87_Atom.mass, grav_vec=(0, 0, -1),
     def grav_func(x, y, z):
         grav_comp = np.dot([x, y, z], grav_vec)
         return -mass*const.g*grav_comp
-    grav_pot = E6utils.func3d_xr(grav_func, x0, xf, n_steps)
+    grav_pot = e6utils.func3d_xr(grav_func, x0, xf, n_steps)
     return grav_pot
 
 
@@ -319,18 +319,18 @@ def make_sphere_quad_pot(gf=-(1/2), mf=-1, B_grad=1, units='T/m', trans_list=Non
         print('unrecognized units, only T/m and G/cm supported')
     gyromagnetic_ratio_classical = 2*np.pi*1.4*1e6*1e4
     # Convert 1.4 MHz/Gauss into 1.4e10 Hz/T
-    mat = E6utils.matrix_rot_v_onto_w((0, 0, 1), strong_axis)
+    mat = e6utils.matrix_rot_v_onto_w((0, 0, 1), strong_axis)
     if trans_list is None:
         trans_list = []
     if not (np.array([strong_axis]) == np.array([0, 0, 1])).all():
-        trans_list = [lambda vec: E6utils.transform_vec(vec, mat)] + trans_list
+        trans_list = [lambda vec: e6utils.transform_vec(vec, mat)] + trans_list
 
     def sphere_quad_func(x, y, z):
         if trans_list is not []:
             [x, y, z] = reduce(lambda vec, f: f(vec), trans_list[::-1], [x, y, z])
         return gf * mf * gyromagnetic_ratio_classical * const.hbar\
                   * np.sqrt((0.5*B_grad*x)**2 + (0.5*B_grad*y)**2 + (B_grad*z)**2)
-    sphere_quad_pot = E6utils.func3d_xr(sphere_quad_func, x0, xf, n_steps)
+    sphere_quad_pot = e6utils.func3d_xr(sphere_quad_func, x0, xf, n_steps)
     return sphere_quad_pot
 
 
