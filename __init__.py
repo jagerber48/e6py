@@ -6,5 +6,5 @@ from .opt_cav import Mirror, OpticalCavity, CavityMode
 from .ringdown import ringdown_fit
 from . import atoms
 
-__all__ = [e6utils, fit_gaussian2d, smart_bimodal2d_fit, Beam, OptTrap, E6cal, ringdown_fit,
+__all__ = [e6utils, fit_gaussian2d, smart_bimodal2d_fit, Beam, OptTrap, ringdown_fit,
            Mirror, OpticalCavity, CavityMode, atoms]
