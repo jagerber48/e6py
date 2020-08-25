@@ -14,12 +14,22 @@ def lin_fit_func(x, *params):
     b = params[1]
     return m * x + b
 
+def lin_fit_func_fixed_zero(x, *params):
+    m = params[0]
+    return m * x
 
-def lin_fit(x_data, y_data, p0=(0, 1), x_label='', y_label='Signal', x_units='s', y_units='a.u.'):
+
+def lin_fit(x_data, y_data, p0=(1, 0), x_label='', y_label='Signal', x_units='s', y_units='a.u.', fix_zero=False):
     # TODO: Return error bars
-    popt, pcov = curve_fit(lin_fit_func, x_data, y_data, p0=p0)
+    if not fix_zero:
+        fit_func = lin_fit_func
+    else:
+        fit_func = lin_fit_func_fixed_zero
+        p0 = p0[0]
+    popt, pcov = curve_fit(fit_func, x_data, y_data, p0=p0)
     print(f'Slope = {popt[0]:.2f} {y_units}/{x_units}')
-    print(f'Offset = {popt[1]:.2f} {y_units}')
+    if not fix_zero:
+        print(f'Offset = {popt[1]:.2f} {y_units}')
 
     x_min = np.min(x_data)
     x_max = np.max(x_data)
@@ -28,8 +38,8 @@ def lin_fit(x_data, y_data, p0=(0, 1), x_label='', y_label='Signal', x_units='s'
     plot_min = x_center - 1.1 * x_range
     plot_max = x_center + 1.1 * x_range
     plot_x_list = np.linspace(plot_min, plot_max, 100)
-    plt.plot(plot_x_list, lin_fit_func(plot_x_list, *popt))
     plt.plot(x_data, y_data, '.', markersize=10)
+    plt.plot(plot_x_list, fit_func(plot_x_list, *popt))
     plt.xlabel(f'{x_label} ({x_units})')
     plt.ylabel(f'{y_label} ({y_units})')
     plt.show()
@@ -46,26 +56,28 @@ def lorentzian_fit_function(x, *params):
     return amplitude * (delta_f_hwhm**2) / (delta_f_hwhm**2 + detuning**2) + offset
 
 
-def lor_fit(x_data, y_data, p0=(1, 0, 1, 0), x_label='Frequency', y_label='Signal', x_units='Hz', y_units='a.u.'):
+def lor_fit(x_data, y_data, p0=(1, 0, 1, 0), x_label='Frequency', y_label='Signal', x_units='Hz', y_units='a.u.',
+            quiet=False):
     # TODO: Return error bars
     popt, pcov = curve_fit(lorentzian_fit_function, x_data, y_data, p0=p0)
-    print(f'Linewidth (FWHM) = {popt[0]:.2f} {x_units}')
-    print(f'Center Frequency = {popt[1]:.2f} {x_units}')
-    print(f'Amplitude = {popt[2]:.2f} {y_units}')
-    print(f'Offset = {popt[3]:.2f} {y_units}')
+    if not quiet:
+        print(f'Linewidth (FWHM) = {popt[0]:.2f} {x_units}')
+        print(f'Center Frequency = {popt[1]:.2f} {x_units}')
+        print(f'Amplitude = {popt[2]:.2f} {y_units}')
+        print(f'Offset = {popt[3]:.2f} {y_units}')
 
-    x_min = np.min(x_data)
-    x_max = np.max(x_data)
-    x_range = (1 / 2) * (x_max - x_min)
-    x_center = (1 / 2) * (x_max + x_min)
-    plot_min = x_center - 1.1 * x_range
-    plot_max = x_center + 1.1 * x_range
-    plot_x_list = np.linspace(plot_min, plot_max, 100)
-    plt.plot(plot_x_list, lorentzian_fit_function(plot_x_list, *popt))
-    plt.plot(x_data, y_data, '.', markersize=10)
-    plt.xlabel(f'{x_label} ({x_units})')
-    plt.ylabel(f'{y_label} ({y_units})')
-    plt.show()
+        x_min = np.min(x_data)
+        x_max = np.max(x_data)
+        x_range = (1 / 2) * (x_max - x_min)
+        x_center = (1 / 2) * (x_max + x_min)
+        plot_min = x_center - 1.1 * x_range
+        plot_max = x_center + 1.1 * x_range
+        plot_x_list = np.linspace(plot_min, plot_max, 100)
+        plt.plot(x_data, y_data, '.', markersize=10)
+        plt.plot(plot_x_list, lorentzian_fit_function(plot_x_list, *popt))
+        plt.xlabel(f'{x_label} ({x_units})')
+        plt.ylabel(f'{y_label} ({y_units})')
+        plt.show()
     return popt, pcov
 
 

@@ -14,7 +14,7 @@ def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, theta=0):
     return A * np.exp(-(1/2)*((rx/sx)**2 + ((ry/sy)**2))) + offset
 
 
-def img_moments(img):
+def img_moments(img, quiet=False):
     rvec = np.indices(img.shape)
     tot = img.sum()
     if tot <= 0:
@@ -40,10 +40,11 @@ def get_guess_values(img, quiet):
     A_guess = img.max()-img.min()
     B_guess = img.min()
     try:
-        x0_guess, y0_guess, sx_guess, sy_guess = img_moments(img)
+        x0_guess, y0_guess, sx_guess, sy_guess = img_moments(img, quiet=quiet)
     except ValueError as e:
-        print(e)
-        print('Using default guess values.')
+        if not quiet:
+            print(e)
+            print('Using default guess values.')
         x0_guess, y0_guess, sx_guess, sy_guess = [x_range/2, y_range/2, x_range/2, y_range/2]
     p_guess = np.array([x0_guess, y0_guess, sx_guess, sy_guess, A_guess, B_guess, 0])
     if not quiet:
@@ -116,6 +117,8 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
     ax_data.set_xlabel('Horizontal Position')
     ax_data.xaxis.set_label_position('top')
     ax_data.set_ylabel('Vertical Position')
+    ax_data.set_ylim(0, x_range)
+    ax_data.set_xlim(0, y_range)
 
     # Fit 2D Plot
     ax_fit = fig.add_subplot(2, 2, 4, position=[0.4, 0.1, 0.25, 0.35])
@@ -125,6 +128,8 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
     ax_fit.set_xlabel('Horizontal Position')
     ax_fit.set_ylabel('Vertical Position')
     ax_fit.yaxis.set_label_position('right')
+    ax_fit.set_ylim(0, x_range)
+    ax_fit.set_xlim(0, y_range)
 
     # X Linecut Plot
     ax_x_line = fig.add_subplot(2, 2, 2, position=[0.4, 0.5, 0.25, 0.35])
@@ -232,8 +237,11 @@ def fit_gaussian2d(img, zoom=1.0, quiet=True, show_plot=True, save_name=None,
     dof = n - p
     # noinspection PyTypeChecker
     s2 = 2 * cost / dof
-    cov = s2 * np.linalg.inv(np.matmul(jac.T, jac))
-
+    try:
+        cov = s2 * np.linalg.inv(np.matmul(jac.T, jac))
+    except np.linalg.LinAlgError as e:
+        print(e)
+        cov = 0 * jac
     fit_struct = create_fit_struct(img, popt, cov, conf_level, dof)
     if show_plot or (save_name is not None):
         make_visualization_figure(fit_struct, show_plot, save_name)
