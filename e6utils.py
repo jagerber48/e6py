@@ -201,7 +201,8 @@ def template_xr(value=0, x0=(-1,)*3, xf=(1,)*3, n_steps=(10,)*3):
     x_coord = np.linspace(x0[0], xf[0], n_steps[0])
     y_coord = np.linspace(x0[1], xf[1], n_steps[1])
     z_coord = np.linspace(x0[2], xf[2], n_steps[2])
-    output_xr = xr.DataArray(value,
+    value_array = value * np.ones(n_steps)
+    output_xr = xr.DataArray(value_array,
                              coords=[
                                     ('x', x_coord),
                                     ('y', y_coord),
