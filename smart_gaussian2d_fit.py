@@ -186,7 +186,7 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None, linear
     # popt = fit_struct['popt']
     dict_param_keys = get_dict_param_keys(linearbg)
     print_str = ''
-    for i in range(9):
+    for i in range(len(dict_param_keys)):
         key = dict_param_keys[i]
         param = fit_struct[key]
         print_str += f"{key} = {param['val']:.1f} +- {param['err_half_range']:.3f}\n"
