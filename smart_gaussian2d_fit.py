@@ -66,7 +66,7 @@ def get_guess_values(img, quiet, linearbg):
 
 def get_dict_param_keys(linearbg):
     if linearbg:
-        dict_param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'theta','a','b']
+        dict_param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'theta', 'a', 'b']
     else:
         dict_param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'theta']
     return dict_param_keys
