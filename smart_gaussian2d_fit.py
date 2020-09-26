@@ -13,10 +13,11 @@ def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, theta=0):
     ry = np.sin(np.radians(theta))*(x-x0) + np.cos(np.radians(theta))*(y-y0)
     return A * np.exp(-(1/2)*((rx/sx)**2 + ((ry/sy)**2))) + offset
 
-def gaussian_2d_lbg(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, theta=0, a=0, b=0):
+
+def gaussian_2d_lbg(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, theta=0, x_slope=0, y_slope=0):
     rx = np.cos(np.radians(theta))*(x-x0) - np.sin(np.radians(theta))*(y-y0)
     ry = np.sin(np.radians(theta))*(x-x0) + np.cos(np.radians(theta))*(y-y0)
-    return A * np.exp(-(1/2)*((rx/sx)**2 + ((ry/sy)**2))) + offset + a*(x-x0) + b*(y-y0)
+    return A * np.exp(-(1/2)*((rx/sx)**2 + ((ry/sy)**2))) + offset + x_slope*(x-x0) + y_slope*(y-y0)
 
 
 def img_moments(img, quiet=False):
