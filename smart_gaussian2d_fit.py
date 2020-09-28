@@ -1,3 +1,4 @@
+# noinspection PyTypeChecker
 import numpy as np
 import scipy.ndimage
 import scipy.stats
@@ -7,7 +8,6 @@ import time
 import matplotlib.pyplot as plt
 
 
-# noinspection PyPep8Naming
 def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, theta=0):
     rx = np.cos(np.radians(theta))*(x-x0) - np.sin(np.radians(theta))*(y-y0)
     ry = np.sin(np.radians(theta))*(x-x0) + np.cos(np.radians(theta))*(y-y0)
@@ -247,3 +247,14 @@ def fit_gaussian2d(img, zoom=1.0, quiet=True, show_plot=True, save_name=None,
         make_visualization_figure(fit_struct, show_plot, save_name)
 
     return fit_struct
+
+def nice_struct_fit(f, p_guess, *args, **kwargs):
+    lsq_struct = least_squares(f, p_guess, *args, **kwargs)
+    popt = lsq_struct['x']
+    jac = lsq_struct['jac']
+    cost = lsq_struct['cost']
+    n = img_downsampled.shape[0]*img_downsampled.shape[1]  # Number of data points
+    p = popt.size  # Number of fit parameters
+    dof = n - p
+    s2 = 2 * cost / dof
+
