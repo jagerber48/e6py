@@ -39,7 +39,7 @@ def img_moments(img, quiet=False):
 
 
 # noinspection PyPep8Naming
-def get_guess_values(img, quiet, linearbg):
+def get_guess_values(img, quiet):
     # Get fit guess values
     x_range = img.shape[0]
     y_range = img.shape[1]
@@ -52,10 +52,7 @@ def get_guess_values(img, quiet, linearbg):
             print(e)
             print('Using default guess values.')
         x0_guess, y0_guess, sx_guess, sy_guess = [x_range/2, y_range/2, x_range/2, y_range/2]
-    if linearbg:    
-        p_guess = np.array([x0_guess, y0_guess, sx_guess, sy_guess, A_guess, B_guess, 0, 0, 0])
-    else:
-        p_guess = np.array([x0_guess, y0_guess, sx_guess, sy_guess, A_guess, B_guess, 0])
+    p_guess = np.array([x0_guess, y0_guess, sx_guess, sy_guess, A_guess, B_guess, 0])
     if not quiet:
         print(f'x0_guess = {x0_guess:.1f}')
         print(f'y0_guess = {y0_guess:.1f}')
@@ -222,7 +219,7 @@ def fit_gaussian2d(img, zoom=1.0, quiet=True, show_plot=True, save_name=None, li
     makes sense if the image intensity is mostly positive.
     """
 
-    p_guess = get_guess_values(img, quiet, linearbg)
+    p_guess = get_guess_values(img, quiet)
     # Downsample image to speed up fit
     img_downsampled = scipy.ndimage.interpolation.zoom(img, 1 / zoom)
     if not quiet:
@@ -233,10 +230,12 @@ def fit_gaussian2d(img, zoom=1.0, quiet=True, show_plot=True, save_name=None, li
     # p_bounds = ([-np.inf, -np.inf, 0, 0, -np.inf, -np.inf, 0],
     #             [np.inf, np.inf, np.inf, np.inf, np.inf, np.inf, 360])
 
-    def img_cost_func(x):
-        if linearbg:
+    if linearbg:
+        def img_cost_func(x):
             return np.ravel(gaussian_2d_lbg(coords_arrays[0] * zoom, coords_arrays[1] * zoom, *x) - img_downsampled)
-        else:
+        p_guess = np.append(p_guess, [0, 0])  # Append to extra parameters for x_slope and y_slope
+    else:
+        def img_cost_func(x):
             return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom, *x) - img_downsampled) 
     t_fit_start = time.time()
     lsq_struct = least_squares(img_cost_func, p_guess, verbose=0)
