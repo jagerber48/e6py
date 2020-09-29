@@ -7,7 +7,6 @@ import time
 import matplotlib.pyplot as plt
 
 
-
 def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, theta=0):
     rx = np.cos(theta)*(x-x0) - np.sin(theta)*(y-y0)
     ry = np.sin(theta)*(x-x0) + np.cos(theta)*(y-y0)
@@ -190,12 +189,13 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
 
 
 # noinspection PyTypeChecker
-def fit_gaussian2d(img, zoom=1.0, quiet=True, show_plot=True, save_name=None,
+def fit_gaussian2d(img, zoom=1.0, theta_offset=0, quiet=True, show_plot=True, save_name=None,
                    conf_level=erf(1 / np.sqrt(2))):
     """
     :param img: Image to fit
     :param zoom: Decimate rate to speed up fitting if downsample is selected
-    :param zoom: Boolean indicating whether or not to downsample
+    :param theta_offset: Central value about which theta is expected to scatter. Allowed values of theta will be
+    theta_offset +- 45 deg. Fits with theta near the edge of this range may swap sx and sy for similar images
     :param quiet: Squelch variable
     :param show_plot: Whether to show the plot or not
     :param save_name: File name for saved figure, None means don't save
@@ -228,43 +228,31 @@ def fit_gaussian2d(img, zoom=1.0, quiet=True, show_plot=True, save_name=None,
     if not quiet:
         print(f'fit time = {t_fit_stop - t_fit_start:.2f} s')
 
-
     popt = lsq_struct['x']
-
     jac = lsq_struct['jac']
-
     cost = lsq_struct['cost']
 
     theta = popt[6]
-    # print(f'theta before = {theta / np.pi:.2f} pi')
     if theta >= np.pi / 2 or theta < 0:
-        # print('changing theta')
         theta = theta % (2 * np.pi)
     if 0 + theta_offset <= theta < np.pi / 4 + theta_offset:
-        # print('theta mode 0')
         pass
     elif np.pi / 4 + theta_offset <= theta < 3 * np.pi / 4 + theta_offset:
         theta = theta - np.pi / 2
         popt[2], popt[3] = popt[3], popt[2]
         jac[:, [2, 3]] = jac[:, [3, 2]]
-        # print('theta mode 1')
-    elif 3 * np.pi / 4 + theta_offset<= theta < 5 * np.pi / 4 + theta_offset:
+    elif 3 * np.pi / 4 + theta_offset <= theta < 5 * np.pi / 4 + theta_offset:
         theta = theta - np.pi
-        # print('theta mode 2')
     elif 5 * np.pi / 4 + theta_offset <= theta < 7 * np.pi / 4 + theta_offset:
         theta = theta - 3 * np.pi / 2
         popt[2], popt[3] = popt[3], popt[2]
         jac[:, [2, 3]] = jac[:, [3, 2]]
-        # print('theta mode 4')
-    elif 7 * np.pi / 4 + theta_offset<= theta < 2 * np.pi + theta_offset:
+    elif 7 * np.pi / 4 + theta_offset <= theta < 2 * np.pi + theta_offset:
         theta = theta - 2 * np.pi
-        # print('theta mode 5')
     popt[6] = theta * 180 / np.pi
     jac[6, :] = jac[6, :] * 180 / np.pi
     jac[:, 6] = jac[:, 6] * 180 / np.pi
     jac[6, 6] = jac[6, 6] * np.pi / 180
-    # print(f'theta after = {theta / np.pi:.2f} pi')
-
 
     n = img_downsampled.shape[0]*img_downsampled.shape[1]  # Number of data points
     p = popt.size  # Number of fit parameters
