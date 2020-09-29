@@ -7,20 +7,14 @@ import time
 import matplotlib.pyplot as plt
 
 
-# noinspection PyPep8Naming
+
 def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, theta=0):
-    rx = np.cos(np.radians(theta))*(x-x0) - np.sin(np.radians(theta))*(y-y0)
-    ry = np.sin(np.radians(theta))*(x-x0) + np.cos(np.radians(theta))*(y-y0)
+    rx = np.cos(theta)*(x-x0) - np.sin(theta)*(y-y0)
+    ry = np.sin(theta)*(x-x0) + np.cos(theta)*(y-y0)
     return A * np.exp(-(1/2)*((rx/sx)**2 + ((ry/sy)**2))) + offset
 
 
-def gaussian_2d_lbg(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, theta=0, x_slope=0, y_slope=0):
-    rx = np.cos(np.radians(theta))*(x-x0) - np.sin(np.radians(theta))*(y-y0)
-    ry = np.sin(np.radians(theta))*(x-x0) + np.cos(np.radians(theta))*(y-y0)
-    return A * np.exp(-(1/2)*((rx/sx)**2 + ((ry/sy)**2))) + offset + x_slope*(x-x0) + y_slope*(y-y0)
-
-
-def img_moments(img, quiet=False):
+def img_moments(img):
     rvec = np.indices(img.shape)
     tot = img.sum()
     if tot <= 0:
@@ -46,7 +40,7 @@ def get_guess_values(img, quiet):
     A_guess = img.max()-img.min()
     B_guess = img.min()
     try:
-        x0_guess, y0_guess, sx_guess, sy_guess = img_moments(img, quiet=quiet)
+        x0_guess, y0_guess, sx_guess, sy_guess = img_moments(img)
     except ValueError as e:
         if not quiet:
             print(e)
@@ -61,11 +55,8 @@ def get_guess_values(img, quiet):
     return p_guess
 
 
-def get_dict_param_keys(linearbg):
-    if linearbg:
-        dict_param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'theta', 'a', 'b']
-    else:
-        dict_param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'theta']
+def get_dict_param_keys():
+    dict_param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'theta']
     return dict_param_keys
 
 
@@ -82,13 +73,10 @@ def make_param_dict(name, val, std, conf_level=erf(1 / np.sqrt(2)), dof=None):
     return pdict
 
 
-def create_fit_struct(img, popt, pcov, conf_level, dof, linearbg):
+def create_fit_struct(img, popt, pcov, conf_level, dof):
     coords_arrays = np.indices(img.shape)
-    if linearbg:
-        model_img = gaussian_2d_lbg(coords_arrays[0], coords_arrays[1], *popt)
-    else:
-        model_img = gaussian_2d(coords_arrays[0], coords_arrays[1], *popt)
-    dict_param_keys = get_dict_param_keys(linearbg)
+    model_img = gaussian_2d(coords_arrays[0], coords_arrays[1], *popt)
+    dict_param_keys = get_dict_param_keys()
     fit_struct = dict()
     for i in range(popt.size):
         if dict_param_keys[i] in {'sx', 'sy'}:
@@ -96,7 +84,6 @@ def create_fit_struct(img, popt, pcov, conf_level, dof, linearbg):
         key = dict_param_keys[i]
         pdict = make_param_dict(key, popt[i], np.sqrt(pcov[i, i]), conf_level, dof)
         fit_struct[key] = pdict
-    fit_struct['linearbg'] = linearbg
     fit_struct['cov'] = pcov
     fit_struct['data_img'] = img
     fit_struct['model_img'] = model_img
@@ -106,7 +93,7 @@ def create_fit_struct(img, popt, pcov, conf_level, dof, linearbg):
     return fit_struct
 
 
-def make_visualization_figure(fit_struct, show_plot=True, save_name=None, linearbg=True):
+def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
     # TODO: Catch error if center of fit is outside plot range
     img = fit_struct['data_img']
     model_img = fit_struct['model_img']
@@ -182,10 +169,10 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None, linear
 
     # Write parameter values
     # popt = fit_struct['popt']
-    dict_param_keys = get_dict_param_keys(linearbg)
+    dict_param_keys = get_dict_param_keys()
     print_str = ''
-    for i in range(len(dict_param_keys)):
-        key = dict_param_keys[i]
+    for key in dict_param_keys:
+
         param = fit_struct[key]
         print_str += f"{key} = {param['val']:.1f} +- {param['err_half_range']:.3f}\n"
     fig.text(.8, .5, print_str)
@@ -203,7 +190,7 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None, linear
 
 
 # noinspection PyTypeChecker
-def fit_gaussian2d(img, zoom=1.0, quiet=True, show_plot=True, save_name=None, linearbg=True,
+def fit_gaussian2d(img, zoom=1.0, quiet=True, show_plot=True, save_name=None,
                    conf_level=erf(1 / np.sqrt(2))):
     """
     :param img: Image to fit
@@ -230,38 +217,67 @@ def fit_gaussian2d(img, zoom=1.0, quiet=True, show_plot=True, save_name=None, li
     # p_bounds = ([-np.inf, -np.inf, 0, 0, -np.inf, -np.inf, 0],
     #             [np.inf, np.inf, np.inf, np.inf, np.inf, np.inf, 360])
 
-    if linearbg:
-        def img_cost_func(x):
-            return np.ravel(gaussian_2d_lbg(coords_arrays[0] * zoom, coords_arrays[1] * zoom, *x) - img_downsampled)
-        p_guess = np.append(p_guess, [0, 0])  # Append to extra parameters for x_slope and y_slope
-    else:
-        def img_cost_func(x):
-            return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom, *x) - img_downsampled) 
+    def img_cost_func(x):
+        return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom, *x) - img_downsampled)
     t_fit_start = time.time()
-    lsq_struct = least_squares(img_cost_func, p_guess, verbose=0)
+
+    # noinspection PyTypeChecker
+    lsq_struct: dict = least_squares(img_cost_func, p_guess, verbose=0)
+
     t_fit_stop = time.time()
     if not quiet:
         print(f'fit time = {t_fit_stop - t_fit_start:.2f} s')
 
-    # noinspection PyTypeChecker
+
     popt = lsq_struct['x']
-    # noinspection PyTypeChecker
+
     jac = lsq_struct['jac']
-    # noinspection PyTypeChecker
+
     cost = lsq_struct['cost']
+
+    theta = popt[6]
+    # print(f'theta before = {theta / np.pi:.2f} pi')
+    if theta >= np.pi / 2 or theta < 0:
+        # print('changing theta')
+        theta = theta % (2 * np.pi)
+    if 0 + theta_offset <= theta < np.pi / 4 + theta_offset:
+        # print('theta mode 0')
+        pass
+    elif np.pi / 4 + theta_offset <= theta < 3 * np.pi / 4 + theta_offset:
+        theta = theta - np.pi / 2
+        popt[2], popt[3] = popt[3], popt[2]
+        jac[:, [2, 3]] = jac[:, [3, 2]]
+        # print('theta mode 1')
+    elif 3 * np.pi / 4 + theta_offset<= theta < 5 * np.pi / 4 + theta_offset:
+        theta = theta - np.pi
+        # print('theta mode 2')
+    elif 5 * np.pi / 4 + theta_offset <= theta < 7 * np.pi / 4 + theta_offset:
+        theta = theta - 3 * np.pi / 2
+        popt[2], popt[3] = popt[3], popt[2]
+        jac[:, [2, 3]] = jac[:, [3, 2]]
+        # print('theta mode 4')
+    elif 7 * np.pi / 4 + theta_offset<= theta < 2 * np.pi + theta_offset:
+        theta = theta - 2 * np.pi
+        # print('theta mode 5')
+    popt[6] = theta * 180 / np.pi
+    jac[6, :] = jac[6, :] * 180 / np.pi
+    jac[:, 6] = jac[:, 6] * 180 / np.pi
+    jac[6, 6] = jac[6, 6] * np.pi / 180
+    # print(f'theta after = {theta / np.pi:.2f} pi')
+
 
     n = img_downsampled.shape[0]*img_downsampled.shape[1]  # Number of data points
     p = popt.size  # Number of fit parameters
     dof = n - p
-    # noinspection PyTypeChecker
+
     s2 = 2 * cost / dof
     try:
         cov = s2 * np.linalg.inv(np.matmul(jac.T, jac))
     except np.linalg.LinAlgError as e:
         print(e)
         cov = 0 * jac
-    fit_struct = create_fit_struct(img, popt, cov, conf_level, dof, linearbg)
+    fit_struct = create_fit_struct(img, popt, cov, conf_level, dof)
     if show_plot or (save_name is not None):
-        make_visualization_figure(fit_struct, show_plot, save_name, linearbg)
+        make_visualization_figure(fit_struct, show_plot, save_name)
 
     return fit_struct
