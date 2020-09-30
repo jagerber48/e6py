@@ -31,6 +31,7 @@ def img_moments(img):
     return x0, y0, sx, sy
 
 
+
 def get_guess_values(img, quiet):
     # Get fit guess values
     x_range = img.shape[0]
@@ -167,9 +168,11 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
         print(e)
 
     # Write parameter values
+
     dict_param_keys = param_keys
     print_str = ''
     for key in dict_param_keys:
+
         param = fit_struct[key]
         print_str += f"{key} = {param['val']:.1f} +- {param['err_half_range']:.3f}\n"
     fig.text(.8, .5, print_str)
@@ -186,13 +189,14 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
     return
 
 
-def fit_gaussian2d(img, zoom=1.0, theta_offset=0, fit_lin_slope=True, quiet=True, show_plot=True, save_name=None,
+
+def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fit_lin_slope=True, quiet=True, show_plot=True, save_name=None,
                    conf_level=erf(1 / np.sqrt(2))):
     """
     :param img: Image to fit
     :param zoom: Decimate rate to speed up fitting if downsample is selected
-    :param theta_offset: Central value about which theta is expected to scatter. Allowed values of theta will be
-    theta_offset +- 45 deg. Fits with theta near the edge of this range may swap sx and sy for similar images
+    :param angle_offset: Central value about which angle is expected to scatter. Allowed values of angle will be
+    angle_offset +- 45 deg. Fits with angle near the edge of this range may swap sx and sy for similar images
     :param fit_lin_slope: Flag to indicate if a fit should be done for a linear background
     :param quiet: Squelch variable
     :param show_plot: Whether to show the plot or not
@@ -208,12 +212,14 @@ def fit_gaussian2d(img, zoom=1.0, theta_offset=0, fit_lin_slope=True, quiet=True
     p_guess = np.append(p_guess, 0)  # Append extra parameter for theta
     if fit_lin_slope:
         p_guess = np.append(p_guess, [0, 0])  # Append two extra parameters for x_slope, y_slope
-
+    # Downsample image to speed up fit
     img_downsampled = scipy.ndimage.interpolation.zoom(img, 1 / zoom)
     if not quiet:
         print(f'Image downsampled by factor: {zoom:.1f}')
 
     coords_arrays = np.indices(img_downsampled.shape)  # (2, x_range, y_range) array of coordinate labels
+
+
     if fit_lin_slope:
         def img_cost_func(x):
             return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom, *x) - img_downsampled)
@@ -227,8 +233,10 @@ def fit_gaussian2d(img, zoom=1.0, theta_offset=0, fit_lin_slope=True, quiet=True
         param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'theta']
 
     t_fit_start = time.time()
+
     # noinspection PyTypeChecker
     lsq_struct: dict = least_squares(img_cost_func, p_guess, verbose=0)
+
     t_fit_stop = time.time()
     if not quiet:
         print(f'fit time = {t_fit_stop - t_fit_start:.2f} s')
@@ -238,7 +246,8 @@ def fit_gaussian2d(img, zoom=1.0, theta_offset=0, fit_lin_slope=True, quiet=True
     jac = lsq_struct['jac']
     cost = lsq_struct['cost']
 
-    theta = popt_dict['theta']
+    theta_offset = angle_offset * np.pi / 180
+    theta = popt[6]
     if theta >= np.pi / 2 or theta < 0:
         theta = theta % (2 * np.pi)
     if 0 + theta_offset <= theta < np.pi / 4 + theta_offset:
