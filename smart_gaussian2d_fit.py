@@ -131,7 +131,6 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
     ax_y_line.plot(range(y_range), y_int_cut_model, zorder=2)
     ax_y_line.invert_yaxis()
     ax_y_line.set_ylabel('Integrated Intensity')
-
     try:
         # y_line_cut_dat = img[x0, :]
         ax_data.axhline(x0, linestyle='--')
@@ -139,8 +138,6 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
         # ax_y_line.plot(range(y_range), y_line_cut_dat, 'o', zorder=0)
     except IndexError as e:
         print(e)
-
-    # Write parameter values
 
     dict_param_keys = param_keys
     print_str = ''
@@ -179,13 +176,14 @@ def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
 
 
 def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fix_lin_slope=False, fix_angle=False,
-                   quiet=True, show_plot=True, save_name=None, conf_level=erf(1 / np.sqrt(2))):
+                   show_plot=True, save_name=None, conf_level=erf(1 / np.sqrt(2)), quiet=True):
     """
     :param img: Image to fit
     :param zoom: Decimate rate to speed up fitting if downsample is selected
     :param angle_offset: Central value about which angle is expected to scatter. Allowed values of angle will be
-    angle_offset +- 45 deg. Fits with angle near the edge of this range may swap sx and sy for similar images
-    :param fit_lin_slope: Flag to indicate if a fit should be done for a linear background
+                         +- 45 deg. Fits with angle near the edge of this range may swap sx and sy for similar images
+    :param fix_lin_slope: Flag to indicate if a fit should constrain linear background to zero
+    :param fix_angle: Flag to indicate if fit should constrain angle to zero
     :param quiet: Squelch variable
     :param show_plot: Whether to show the plot or not
     :param save_name: File name for saved figure, None means don't save
