@@ -8,8 +8,9 @@ import matplotlib.pyplot as plt
 
 
 def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, angle=0, x_slope=0, y_slope=0):
-    rx = np.cos(angle) * (x - x0) - np.sin(angle) * (y - y0)
-    ry = np.sin(angle) * (x - x0) + np.cos(angle) * (y - y0)
+    angle_rad = np.radians(angle)
+    rx = np.cos(angle_rad) * (x - x0) - np.sin(angle_rad) * (y - y0)
+    ry = np.sin(angle_rad) * (x - x0) + np.cos(angle_rad) * (y - y0)
     return A * np.exp(-(1/2) * ((rx/sx)**2 + ((ry/sy)**2))) + offset + x_slope * (x-x0) + y_slope * (y-y0)
 
 
@@ -300,29 +301,27 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
     popt_dict['sy'] = np.abs(popt_dict['sy'])
 
     if not fix_angle:
-        theta_offset = angle_offset * np.pi / 180
-        theta = popt_dict['angle']
-        theta_diff = (theta - theta_offset) % (2 * np.pi)
-        if 0 <= theta_diff < np.pi / 4:
-            theta = theta_offset + theta_diff
-        elif np.pi / 4 <= theta_diff < 3 * np.pi / 4:
-            theta = theta_offset + theta_diff - np.pi / 2
+        angle = popt_dict['angle']
+        angle_diff = (angle - angle_offset) % 360
+        if 0 <= angle_diff < 45:
+            angle = angle_offset + angle_diff
+        elif 45 <= angle_diff < 135:
+            angle = angle_offset + angle_diff - 90
             popt_dict['sx'], popt_dict['sy'] = popt_dict['sy'], popt_dict['sx']
             jac[:, [2, 3]] = jac[:, [3, 2]]
-        elif 3 * np.pi / 4 <= theta_diff < 5 * np.pi / 4:
-            theta = theta_offset + theta_diff - np.pi
-        elif 5 * np.pi / 4 <= theta_diff < 7 * np.pi / 4:
-            theta = theta_offset + theta_diff - 3 * np.pi / 2
+        elif 135 <= angle_diff < 225:
+            angle = angle_offset + angle_diff - 180
+        elif 225 <= angle_diff < 315:
+            angle = angle_offset + angle_diff - 270
             popt_dict['sx'], popt_dict['sy'] = popt_dict['sy'], popt_dict['sx']
             jac[:, [2, 3]] = jac[:, [3, 2]]
-        elif 7 * np.pi / 4 <= theta_diff < 2 * np.pi:
-            theta = theta_offset + theta_diff - 2 * np.pi
+        elif 315 <= angle_diff < 360:
+            angle = angle_offset + angle_diff - 360
 
-        angle = theta * 180 / np.pi
         popt_dict['angle'] = angle
-        jac[6, :] = jac[6, :] * 180 / np.pi
-        jac[:, 6] = jac[:, 6] * 180 / np.pi
-        jac[6, 6] = jac[6, 6] * np.pi / 180
+        jac[6, :] = jac[6, :]
+        jac[:, 6] = jac[:, 6]
+        jac[6, 6] = jac[6, 6]
 
     n_data_points = img_downsampled.shape[0]*img_downsampled.shape[1]
     n_fit_parameters = len(popt_dict)
