@@ -7,9 +7,9 @@ import time
 import matplotlib.pyplot as plt
 
 
-def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, theta=0, x_slope=0, y_slope=0):
-    rx = np.cos(theta) * (x-x0) - np.sin(theta) * (y-y0)
-    ry = np.sin(theta) * (x-x0) + np.cos(theta) * (y-y0)
+def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, angle=0, x_slope=0, y_slope=0):
+    rx = np.cos(angle) * (x - x0) - np.sin(angle) * (y - y0)
+    ry = np.sin(angle) * (x - x0) + np.cos(angle) * (y - y0)
     return A * np.exp(-(1/2) * ((rx/sx)**2 + ((ry/sy)**2))) + offset + x_slope * (x-x0) + y_slope * (y-y0)
 
 
