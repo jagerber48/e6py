@@ -31,7 +31,6 @@ def img_moments(img):
     return x0, y0, sx, sy
 
 
-# noinspection PyPep8Naming
 def get_guess_values(img, quiet):
     # Get fit guess values
     x_range = img.shape[0]
@@ -168,11 +167,9 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
         print(e)
 
     # Write parameter values
-    # popt = fit_struct['popt']
     dict_param_keys = param_keys
     print_str = ''
     for key in dict_param_keys:
-
         param = fit_struct[key]
         print_str += f"{key} = {param['val']:.1f} +- {param['err_half_range']:.3f}\n"
     fig.text(.8, .5, print_str)
@@ -189,7 +186,6 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
     return
 
 
-# noinspection PyTypeChecker
 def fit_gaussian2d(img, zoom=1.0, theta_offset=0, fit_lin_slope=True, quiet=True, show_plot=True, save_name=None,
                    conf_level=erf(1 / np.sqrt(2))):
     """
@@ -212,16 +208,12 @@ def fit_gaussian2d(img, zoom=1.0, theta_offset=0, fit_lin_slope=True, quiet=True
     p_guess = np.append(p_guess, 0)  # Append extra parameter for theta
     if fit_lin_slope:
         p_guess = np.append(p_guess, [0, 0])  # Append two extra parameters for x_slope, y_slope
-    # Downsample image to speed up fit
+
     img_downsampled = scipy.ndimage.interpolation.zoom(img, 1 / zoom)
     if not quiet:
         print(f'Image downsampled by factor: {zoom:.1f}')
 
     coords_arrays = np.indices(img_downsampled.shape)  # (2, x_range, y_range) array of coordinate labels
-    # Perform fit
-    # p_bounds = ([-np.inf, -np.inf, 0, 0, -np.inf, -np.inf, 0],
-    #             [np.inf, np.inf, np.inf, np.inf, np.inf, np.inf, 360])
-
     if fit_lin_slope:
         def img_cost_func(x):
             return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom, *x) - img_downsampled)
@@ -235,19 +227,18 @@ def fit_gaussian2d(img, zoom=1.0, theta_offset=0, fit_lin_slope=True, quiet=True
         param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'theta']
 
     t_fit_start = time.time()
-
     # noinspection PyTypeChecker
     lsq_struct: dict = least_squares(img_cost_func, p_guess, verbose=0)
-
     t_fit_stop = time.time()
     if not quiet:
         print(f'fit time = {t_fit_stop - t_fit_start:.2f} s')
 
     popt = lsq_struct['x']
+    popt_dict = dict(zip(param_keys, popt))
     jac = lsq_struct['jac']
     cost = lsq_struct['cost']
 
-    theta = popt[6]
+    theta = popt_dict['theta']
     if theta >= np.pi / 2 or theta < 0:
         theta = theta % (2 * np.pi)
     if 0 + theta_offset <= theta < np.pi / 4 + theta_offset:
