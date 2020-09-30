@@ -53,7 +53,7 @@ def get_guess_values(img, quiet=True):
     return p_guess
 
 
-def make_param_dict(name, val, std, conf_level=erf(1 / np.sqrt(2)), dof=None):
+def make_fit_param_dict(name, val, std, conf_level=erf(1 / np.sqrt(2)), dof=None):
     pdict = {'name': name, 'val': val, 'std': std, 'conf_level': conf_level}
     if dof is None:  # Assume normal distribution if dof not specified
         tcrit = scipy.stats.norm.ppf((1 + conf_level) / 2)
@@ -163,8 +163,8 @@ def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
     model_img = gaussian_2d(coords_arrays[0], coords_arrays[1], **popt_dict)
     fit_struct = dict()
     for i, key in enumerate(popt_dict.keys()):
-        pdict = make_param_dict(key, popt_dict[key], np.sqrt(pcov[i, i]), conf_level, dof)
-        fit_struct[key] = pdict
+        fit_param_dict = make_fit_param_dict(key, popt_dict[key], np.sqrt(pcov[i, i]), conf_level, dof)
+        fit_struct[key] = fit_param_dict
     fit_struct['cov'] = pcov
     fit_struct['data_img'] = img
     fit_struct['model_img'] = model_img
@@ -175,23 +175,89 @@ def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
     return fit_struct
 
 
-def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fix_lin_slope=False, fix_angle=False,
+def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_angle=False,
                    show_plot=True, save_name=None, conf_level=erf(1 / np.sqrt(2)), quiet=True):
     """
-    :param img: Image to fit
+    2D Gaussian fit to an image
+
+    Guassian fitting algorithm operates by taking an input image img, extracting a guess for initial fit parameters
+    and then perform a Gaussian fit. The initial guess is either based on the mean and variance of img or the image
+    size. There are options to fit or constrain the tilt angle of the ellipse and a 2D linear sloping background.
+    Returns a fit_struct dictionary object which contains some detailed information about the fit including the
+    fit value, standard deviation, and confidence intervals for all fit parameters.
+
+    :param img: 2D Image to fit
     :param zoom: Decimate rate to speed up fitting if downsample is selected
-    :param angle_offset: Central value about which angle is expected to scatter. Allowed values of angle will be
-                         +- 45 deg. Fits with angle near the edge of this range may swap sx and sy for similar images
+    :param angle_offset: (degrees) Central value about which tilt angle is expected to scatter. Output values for
+                         angle will be +- 45 deg. Fits with tilt angle near the edge of this range may swap sx and sy
+                         for similar looking images
     :param fix_lin_slope: Flag to indicate if a fit should constrain linear background to zero
-    :param fix_angle: Flag to indicate if fit should constrain angle to zero
+    :param fix_angle: Flag to indicate if fit should constrain tilt angle to zero degrees
+    :param show_plot: Flag to indicate whether to show fit visualization
+    :param save_name: File name for saved figure, default None value means don't save figure
+    :param conf_level: Confidence level for confidence intervals
     :param quiet: Squelch variable
-    :param show_plot: Whether to show the plot or not
-    :param save_name: File name for saved figure, None means don't save
-    :param conf_level: Confidence level for confidence region
-    :return: Returns a struct containing relevant data output of the fit routine
-    Take an image as input and fits the image amplitude with a 2D gaussian.
-    Attempts to guess fit values by extracting 2D mean and variance of the image. this only
-    makes sense if the image intensity is mostly positive.
+
+    :return fit_struct: Returns a struct containing relevant data output of the fit routine
+    :rtype dict
+
+    Returns
+    _______
+    `fit_struct` dictionary with the following keys defined:
+
+    x0 : dict
+        fit_param_dict for fit center x-coordinate
+    y0 : dict
+        fit_param_dict for fit center y-coordinate
+    sx : dict
+        fit_param_dict for fit standard deviation in x-coordinate
+    sy : dict
+        fit_param_dict for fit standard deviation in y-coordinate
+    A : dict
+        fit_param_dict for fit amplitude
+    offset : dict
+        fit_param_dict for background offset
+    theta (optionally) : dict
+        fit_param dict for tilt angle (degrees). Constrained to angle_offset +- 45 deg
+        enabled if fix_tilt_angle=False
+    x_slope (optionally) : dict
+        fit_param_dict for linear slope in x-coordinate. enabled if fix_lin_slope=False
+    y_slope (optionally) : dict
+        fit_param_dict for linear slope in y-coordinate. enabled if fix_lin_slope=False
+    cov : ndarray
+        Covariance matrix estimated from fit Jacobian
+    data_img: ndarray
+        Copy of input image, img
+    model_img: ndarray
+        Image representing the best fit to img using 2D Gaussian model
+    NGauss: float
+        Total area under Gaussian fit model (assuming infinite range, not restricted to image area even if Gaussian
+        variance is much larger than image size
+    NSum: float
+        Integrated sum of all pixel values in original image
+    NSum_BGsubtract: float
+        Subtract off fitted background from NSum: NSum - offset. NSum - offset.
+
+    fit_param_dict
+    _______
+    fit_param_dict are dictionaries carries information about individual fit parameters with the following keys
+    defined:
+    name : str
+        parameter name
+    val : float
+        central fit value for parameter
+    std : float
+        standard deviation of fit extracted from fit Jacobian matrix
+    conf_level : float
+        confidence level for fit parameter confidence interval
+    err_half_range : float
+        Half the size of the confidence interval
+    err_full_range : float
+        Full size of the confidence interval
+    val_lb : float
+        Lower limit of confidence interval
+    val_ub : float
+        Upper limit of confidence interval
     """
 
     p_guess = get_guess_values(img, quiet)
@@ -224,7 +290,7 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fix_lin_slope=False, fix_angle
 
     t_fit_start = time.time()
     # noinspection PyTypeChecker
-    lsq_struct: dict = least_squares(img_cost_func, p_guess, verbose=0)
+    lsq_struct = least_squares(img_cost_func, p_guess, verbose=0)
     t_fit_stop = time.time()
     if not False:
         print(f'fit time = {t_fit_stop - t_fit_start:.2f} s')
