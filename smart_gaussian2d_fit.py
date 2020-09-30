@@ -31,8 +31,7 @@ def img_moments(img):
     return x0, y0, sx, sy
 
 
-
-def get_guess_values(img, quiet):
+def get_guess_values(img, quiet=True):
     # Get fit guess values
     x_range = img.shape[0]
     y_range = img.shape[1]
@@ -70,27 +69,6 @@ def make_param_dict(name, val, std, conf_level=erf(1 / np.sqrt(2)), dof=None):
     pdict['val_lb'] = val - pdict['err_half_range']
     pdict['val_ub'] = val + pdict['err_half_range']
     return pdict
-
-
-def create_fit_struct(img, popt, pcov, conf_level, dof, param_keys):
-    coords_arrays = np.indices(img.shape)
-    model_img = gaussian_2d(coords_arrays[0], coords_arrays[1], *popt)
-    dict_param_keys = param_keys
-    fit_struct = dict()
-    for i in range(popt.size):
-        if dict_param_keys[i] in {'sx', 'sy'}:
-            popt[i] = np.abs(popt[i])
-        key = dict_param_keys[i]
-        pdict = make_param_dict(key, popt[i], np.sqrt(pcov[i, i]), conf_level, dof)
-        fit_struct[key] = pdict
-    fit_struct['cov'] = pcov
-    fit_struct['data_img'] = img
-    fit_struct['model_img'] = model_img
-    fit_struct['NGauss'] = fit_struct['A']['val'] * 2 * np.pi * fit_struct['sx']['val'] * fit_struct['sy']['val']
-    fit_struct['NSum'] = np.sum(img)
-    # TODO: NSum_BGsubtract should subtract linear background as well if it was fitted for
-    fit_struct['NSum_BGsubtract'] = np.sum(img - fit_struct['offset']['val'])
-    return fit_struct
 
 
 def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=None):
@@ -172,7 +150,6 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
     dict_param_keys = param_keys
     print_str = ''
     for key in dict_param_keys:
-
         param = fit_struct[key]
         print_str += f"{key} = {param['val']:.1f} +- {param['err_half_range']:.3f}\n"
     fig.text(.8, .5, print_str)
@@ -188,6 +165,22 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
 
     return
 
+
+def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
+    coords_arrays = np.indices(img.shape)
+    model_img = gaussian_2d(coords_arrays[0], coords_arrays[1], **popt_dict)
+    fit_struct = dict()
+    for i, key in enumerate(popt_dict.keys()):
+        pdict = make_param_dict(key, popt_dict[key], np.sqrt(pcov[i, i]), conf_level, dof)
+        fit_struct[key] = pdict
+    fit_struct['cov'] = pcov
+    fit_struct['data_img'] = img
+    fit_struct['model_img'] = model_img
+    fit_struct['NGauss'] = fit_struct['A']['val'] * 2 * np.pi * fit_struct['sx']['val'] * fit_struct['sy']['val']
+    fit_struct['NSum'] = np.sum(img)
+    # TODO: NSum_BGsubtract should subtract linear background as well if it was fitted for
+    fit_struct['NSum_BGsubtract'] = np.sum(img - fit_struct['offset']['val'])
+    return fit_struct
 
 
 def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fit_lin_slope=True, quiet=True, show_plot=True, save_name=None,
@@ -219,18 +212,17 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fit_lin_slope=True, quiet=True
 
     coords_arrays = np.indices(img_downsampled.shape)  # (2, x_range, y_range) array of coordinate labels
 
-
     if fit_lin_slope:
         def img_cost_func(x):
             return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom, *x) - img_downsampled)
 
-        param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'theta', 'x_slope', 'y_slope']
+        param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'angle', 'x_slope', 'y_slope']
     else:
         def img_cost_func(x):
             return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom,
                                         x_slope=0, y_slope=0, *x)
                             - img_downsampled)
-        param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'theta']
+        param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'angle']
 
     t_fit_start = time.time()
 
@@ -246,31 +238,35 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fit_lin_slope=True, quiet=True
     jac = lsq_struct['jac']
     cost = lsq_struct['cost']
 
+    popt_dict['sx'] = np.abs(popt_dict['sx'])
+    popt_dict['sy'] = np.abs(popt_dict['sy'])
+
     theta_offset = angle_offset * np.pi / 180
-    theta = popt[6]
-    if theta >= np.pi / 2 or theta < 0:
-        theta = theta % (2 * np.pi)
-    if 0 + theta_offset <= theta < np.pi / 4 + theta_offset:
-        pass
-    elif np.pi / 4 + theta_offset <= theta < 3 * np.pi / 4 + theta_offset:
-        theta = theta - np.pi / 2
-        popt[2], popt[3] = popt[3], popt[2]
+    theta = popt_dict['angle']
+    theta_diff = (theta - theta_offset) % (2 * np.pi)
+    if 0 <= theta_diff < np.pi / 4:
+        theta = theta_offset + theta_diff
+    elif np.pi / 4 <= theta_diff < 3 * np.pi / 4:
+        theta = theta_offset + theta_diff - np.pi / 2
+        popt_dict['sx'], popt_dict['sy'] = popt_dict['sy'], popt_dict['sx']
         jac[:, [2, 3]] = jac[:, [3, 2]]
-    elif 3 * np.pi / 4 + theta_offset <= theta < 5 * np.pi / 4 + theta_offset:
-        theta = theta - np.pi
-    elif 5 * np.pi / 4 + theta_offset <= theta < 7 * np.pi / 4 + theta_offset:
-        theta = theta - 3 * np.pi / 2
-        popt[2], popt[3] = popt[3], popt[2]
+    elif 3 * np.pi / 4 <= theta_diff < 5 * np.pi / 4:
+        theta = theta_offset + theta_diff - np.pi
+    elif 5 * np.pi / 4 <= theta_diff < 7 * np.pi / 4:
+        theta = theta_offset + theta_diff - 3 * np.pi / 2
+        popt_dict['sx'], popt_dict['sy'] = popt_dict['sy'], popt_dict['sx']
         jac[:, [2, 3]] = jac[:, [3, 2]]
-    elif 7 * np.pi / 4 + theta_offset <= theta < 2 * np.pi + theta_offset:
-        theta = theta - 2 * np.pi
-    popt[6] = theta * 180 / np.pi
+    elif 7 * np.pi / 4 <= theta_diff < 2 * np.pi:
+        theta = theta_offset + theta_diff - 2 * np.pi
+
+    angle = theta * 180 / np.pi
+    popt_dict['angle'] = angle
     jac[6, :] = jac[6, :] * 180 / np.pi
     jac[:, 6] = jac[:, 6] * 180 / np.pi
     jac[6, 6] = jac[6, 6] * np.pi / 180
 
     n = img_downsampled.shape[0]*img_downsampled.shape[1]  # Number of data points
-    p = popt.size  # Number of fit parameters
+    p = len(popt_dict)  # Number of fit parameters
     dof = n - p
 
     s2 = 2 * cost / dof
@@ -279,7 +275,7 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fit_lin_slope=True, quiet=True
     except np.linalg.LinAlgError as e:
         print(e)
         cov = 0 * jac
-    fit_struct = create_fit_struct(img, popt, cov, conf_level, dof, param_keys)
+    fit_struct = create_fit_struct(img, popt_dict, cov, conf_level, dof)
     if show_plot or (save_name is not None):
         make_visualization_figure(fit_struct, param_keys, show_plot, save_name)
 
