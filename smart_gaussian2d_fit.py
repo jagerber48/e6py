@@ -190,13 +190,13 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
 
 
 # noinspection PyTypeChecker
-def fit_gaussian2d(img, zoom=1.0, theta_offset=0, fit_lin_slope=True, quiet=True, show_plot=True, save_name=None,
+def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fit_lin_slope=True, quiet=True, show_plot=True, save_name=None,
                    conf_level=erf(1 / np.sqrt(2))):
     """
     :param img: Image to fit
     :param zoom: Decimate rate to speed up fitting if downsample is selected
-    :param theta_offset: Central value about which theta is expected to scatter. Allowed values of theta will be
-    theta_offset +- 45 deg. Fits with theta near the edge of this range may swap sx and sy for similar images
+    :param angle_offset: Central value about which angle is expected to scatter. Allowed values of angle will be
+    angle_offset +- 45 deg. Fits with angle near the edge of this range may swap sx and sy for similar images
     :param fit_lin_slope: Flag to indicate if a fit should be done for a linear background
     :param quiet: Squelch variable
     :param show_plot: Whether to show the plot or not
@@ -247,6 +247,7 @@ def fit_gaussian2d(img, zoom=1.0, theta_offset=0, fit_lin_slope=True, quiet=True
     jac = lsq_struct['jac']
     cost = lsq_struct['cost']
 
+    theta_offset = angle_offset * np.pi / 180
     theta = popt[6]
     if theta >= np.pi / 2 or theta < 0:
         theta = theta % (2 * np.pi)
