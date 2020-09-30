@@ -53,11 +53,6 @@ def get_guess_values(img, quiet=True):
     return p_guess
 
 
-def get_dict_param_keys():
-    dict_param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'theta']
-    return dict_param_keys
-
-
 def make_param_dict(name, val, std, conf_level=erf(1 / np.sqrt(2)), dof=None):
     pdict = {'name': name, 'val': val, 'std': std, 'conf_level': conf_level}
     if dof is None:  # Assume normal distribution if dof not specified
@@ -183,8 +178,8 @@ def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
     return fit_struct
 
 
-def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fit_lin_slope=True, quiet=True, show_plot=True, save_name=None,
-                   conf_level=erf(1 / np.sqrt(2))):
+def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fix_lin_slope=False, fix_angle=False,
+                   quiet=True, show_plot=True, save_name=None, conf_level=erf(1 / np.sqrt(2))):
     """
     :param img: Image to fit
     :param zoom: Decimate rate to speed up fitting if downsample is selected
@@ -202,9 +197,7 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fit_lin_slope=True, quiet=True
     """
 
     p_guess = get_guess_values(img, quiet)
-    p_guess = np.append(p_guess, 0)  # Append extra parameter for theta
-    if fit_lin_slope:
-        p_guess = np.append(p_guess, [0, 0])  # Append two extra parameters for x_slope, y_slope
+
     # Downsample image to speed up fit
     img_downsampled = scipy.ndimage.interpolation.zoom(img, 1 / zoom)
     if not quiet:
@@ -212,25 +205,30 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fit_lin_slope=True, quiet=True
 
     coords_arrays = np.indices(img_downsampled.shape)  # (2, x_range, y_range) array of coordinate labels
 
-    if fit_lin_slope:
-        def img_cost_func(x):
-            return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom, *x) - img_downsampled)
-
-        param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'angle', 'x_slope', 'y_slope']
+    param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset']
+    lock_params = dict()
+    if fix_angle:
+        lock_params['angle'] = 0
     else:
-        def img_cost_func(x):
-            return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom,
-                                        x_slope=0, y_slope=0, *x)
-                            - img_downsampled)
-        param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset', 'angle']
+        param_keys.append('angle')
+        p_guess = np.append(p_guess, 0)
+    if fix_lin_slope:
+        lock_params['x_slope'] = 0
+        lock_params['y_slope'] = 0
+    else:
+        param_keys.extend(['x_slope', 'y_slope'])
+        p_guess = np.append(p_guess, [0, 0])
+
+    def img_cost_func(x):
+        return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom,
+                                    *x, **lock_params)
+                        - img_downsampled)
 
     t_fit_start = time.time()
-
     # noinspection PyTypeChecker
     lsq_struct: dict = least_squares(img_cost_func, p_guess, verbose=0)
-
     t_fit_stop = time.time()
-    if not quiet:
+    if not False:
         print(f'fit time = {t_fit_stop - t_fit_start:.2f} s')
 
     popt = lsq_struct['x']
@@ -241,29 +239,30 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0, fit_lin_slope=True, quiet=True
     popt_dict['sx'] = np.abs(popt_dict['sx'])
     popt_dict['sy'] = np.abs(popt_dict['sy'])
 
-    theta_offset = angle_offset * np.pi / 180
-    theta = popt_dict['angle']
-    theta_diff = (theta - theta_offset) % (2 * np.pi)
-    if 0 <= theta_diff < np.pi / 4:
-        theta = theta_offset + theta_diff
-    elif np.pi / 4 <= theta_diff < 3 * np.pi / 4:
-        theta = theta_offset + theta_diff - np.pi / 2
-        popt_dict['sx'], popt_dict['sy'] = popt_dict['sy'], popt_dict['sx']
-        jac[:, [2, 3]] = jac[:, [3, 2]]
-    elif 3 * np.pi / 4 <= theta_diff < 5 * np.pi / 4:
-        theta = theta_offset + theta_diff - np.pi
-    elif 5 * np.pi / 4 <= theta_diff < 7 * np.pi / 4:
-        theta = theta_offset + theta_diff - 3 * np.pi / 2
-        popt_dict['sx'], popt_dict['sy'] = popt_dict['sy'], popt_dict['sx']
-        jac[:, [2, 3]] = jac[:, [3, 2]]
-    elif 7 * np.pi / 4 <= theta_diff < 2 * np.pi:
-        theta = theta_offset + theta_diff - 2 * np.pi
+    if not fix_angle:
+        theta_offset = angle_offset * np.pi / 180
+        theta = popt_dict['angle']
+        theta_diff = (theta - theta_offset) % (2 * np.pi)
+        if 0 <= theta_diff < np.pi / 4:
+            theta = theta_offset + theta_diff
+        elif np.pi / 4 <= theta_diff < 3 * np.pi / 4:
+            theta = theta_offset + theta_diff - np.pi / 2
+            popt_dict['sx'], popt_dict['sy'] = popt_dict['sy'], popt_dict['sx']
+            jac[:, [2, 3]] = jac[:, [3, 2]]
+        elif 3 * np.pi / 4 <= theta_diff < 5 * np.pi / 4:
+            theta = theta_offset + theta_diff - np.pi
+        elif 5 * np.pi / 4 <= theta_diff < 7 * np.pi / 4:
+            theta = theta_offset + theta_diff - 3 * np.pi / 2
+            popt_dict['sx'], popt_dict['sy'] = popt_dict['sy'], popt_dict['sx']
+            jac[:, [2, 3]] = jac[:, [3, 2]]
+        elif 7 * np.pi / 4 <= theta_diff < 2 * np.pi:
+            theta = theta_offset + theta_diff - 2 * np.pi
 
-    angle = theta * 180 / np.pi
-    popt_dict['angle'] = angle
-    jac[6, :] = jac[6, :] * 180 / np.pi
-    jac[:, 6] = jac[:, 6] * 180 / np.pi
-    jac[6, 6] = jac[6, 6] * np.pi / 180
+        angle = theta * 180 / np.pi
+        popt_dict['angle'] = angle
+        jac[6, :] = jac[6, :] * 180 / np.pi
+        jac[:, 6] = jac[:, 6] * 180 / np.pi
+        jac[6, 6] = jac[6, 6] * np.pi / 180
 
     n = img_downsampled.shape[0]*img_downsampled.shape[1]  # Number of data points
     p = len(popt_dict)  # Number of fit parameters
