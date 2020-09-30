@@ -110,7 +110,7 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
     x_int_cut_model = np.sum(model_img, axis=1) / np.sqrt(2 * np.pi * sy**2)
     ax_x_line.plot(x_int_cut_dat, range(x_range), 'o', zorder=1)
     ax_x_line.plot(x_int_cut_model, range(x_range), zorder=2)
-    ax_x_line.invert_yaxis()
+    # ax_x_line.invert_yaxis()
     ax_x_line.yaxis.tick_right()
     ax_x_line.xaxis.tick_top()
     ax_x_line.set_xlabel('Integrated Intensity')
@@ -175,13 +175,14 @@ def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
     return fit_struct
 
 
+# noinspection PyTypeChecker
 def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_angle=False,
                    show_plot=True, save_name=None, conf_level=erf(1 / np.sqrt(2)), quiet=True):
     """
     2D Gaussian fit to an image
 
     Guassian fitting algorithm operates by taking an input image img, extracting a guess for initial fit parameters
-    and then perform a Gaussian fit. The initial guess is either based on the mean and variance of img or the image
+    and then performing a Gaussian fit. The initial guess is either based on the mean and variance of img or the image
     size. There are options to fit or constrain the tilt angle of the ellipse and a 2D linear sloping background.
     Returns a fit_struct dictionary object which contains some detailed information about the fit including the
     fit value, standard deviation, and confidence intervals for all fit parameters.
@@ -260,15 +261,12 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
         Upper limit of confidence interval
     """
 
-    p_guess = get_guess_values(img, quiet)
-
-    # Downsample image to speed up fit
     img_downsampled = scipy.ndimage.interpolation.zoom(img, 1 / zoom)
     if not quiet:
         print(f'Image downsampled by factor: {zoom:.1f}')
-
     coords_arrays = np.indices(img_downsampled.shape)  # (2, x_range, y_range) array of coordinate labels
 
+    p_guess = get_guess_values(img, quiet=quiet)
     param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset']
     lock_params = dict()
     if fix_angle:
@@ -287,12 +285,10 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
         return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom,
                                     *x, **lock_params)
                         - img_downsampled)
-
     t_fit_start = time.time()
-    # noinspection PyTypeChecker
     lsq_struct = least_squares(img_cost_func, p_guess, verbose=0)
     t_fit_stop = time.time()
-    if not False:
+    if not quiet:
         print(f'fit time = {t_fit_stop - t_fit_start:.2f} s')
 
     popt = lsq_struct['x']
@@ -328,16 +324,16 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
         jac[:, 6] = jac[:, 6] * 180 / np.pi
         jac[6, 6] = jac[6, 6] * np.pi / 180
 
-    n = img_downsampled.shape[0]*img_downsampled.shape[1]  # Number of data points
-    p = len(popt_dict)  # Number of fit parameters
-    dof = n - p
-
-    s2 = 2 * cost / dof
+    n_data_points = img_downsampled.shape[0]*img_downsampled.shape[1]
+    n_fit_parameters = len(popt_dict)
+    dof = n_data_points - n_fit_parameters
+    sigma_squared = 2 * cost / dof
     try:
-        cov = s2 * np.linalg.inv(np.matmul(jac.T, jac))
+        cov = sigma_squared * np.linalg.inv(np.matmul(jac.T, jac))
     except np.linalg.LinAlgError as e:
         print(e)
         cov = 0 * jac
+
     fit_struct = create_fit_struct(img, popt_dict, cov, conf_level, dof)
     if show_plot or (save_name is not None):
         make_visualization_figure(fit_struct, param_keys, show_plot, save_name)
