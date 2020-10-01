@@ -19,7 +19,8 @@ def lin_fit_func_fixed_zero(x, *params):
     return m * x
 
 
-def lin_fit(x_data, y_data, p0=(1, 0), x_label='', y_label='Signal', x_units='s', y_units='a.u.', fix_zero=False):
+def lin_fit(x_data, y_data, p0=(1, 0), x_label='', y_label='Signal',
+            x_units='s', y_units='a.u.', title='', fix_zero=False):
     # TODO: Return error bars
     if not fix_zero:
         fit_func = lin_fit_func
@@ -42,6 +43,7 @@ def lin_fit(x_data, y_data, p0=(1, 0), x_label='', y_label='Signal', x_units='s'
     plt.plot(plot_x_list, fit_func(plot_x_list, *popt))
     plt.xlabel(f'{x_label} ({x_units})')
     plt.ylabel(f'{y_label} ({y_units})')
+    plt.title(title)
     plt.show()
     return popt, pcov
 
@@ -242,3 +244,29 @@ def e_field_to_intensity(E):
 
 def intensity_to_e_field(intensity):
     return np.sqrt(2*intensity/(c*ep0))
+
+
+def shot_to_loop_and_point(shot, num_points=1, shot_start=0, loop_start=0, point_start=0):
+    """
+    Convert shot number to loop and point using the number of points. Default assumption is indexing for
+    shot, loop, and point all starts from zero with options for other conventions.
+    """
+    shot_ind = shot - shot_start
+    loop_ind = shot_ind  // num_points
+    point_ind = shot_ind % num_points
+    loop = loop_ind + loop_start
+    point = point_ind + point_start
+    return loop, point
+
+
+def loop_and_point_to_shot(loop, point, num_points=1, shot_start=0, loop_start=0, point_start=0):
+    """
+    Convert loop and point to shot number using the number of points. Default assumption is indexing for
+    shot, loop, and point all starts from zero with options for other conventions.
+    """
+    loop_ind = loop - loop_start
+    point_ind = point - point_start
+    shot_ind = loop_ind * num_points + point_ind
+    shot = shot_ind + shot_start
+    return shot
+
