@@ -270,3 +270,10 @@ def loop_and_point_to_shot(loop, point, num_points=1, shot_start=0, loop_start=0
     shot = shot_ind + shot_start
     return shot
 
+
+def get_shots_from_points(point, num_points, final_shot, shot_start=0, loop_start=0, point_start=0):
+    start_ind = 0
+    stop_ind = final_shot - shot_start
+    shots_ind = np.arange(0, final_shot, num_points)
+    shots = shots_ind + shot_start
+    return shots
