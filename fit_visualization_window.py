@@ -48,51 +48,33 @@ class GaussianIntegrateAxisPlot(pg.PlotItem):
 class Gaussian2DPlot(pg.PlotItem):
     def __init__(self, *args, **kwargs):
         super(Gaussian2DPlot, self).__init__(*args, **kwargs)
-        self.img = None
-        self.x0 = 0
-        self.y0 = 0
-        self.angle = 0
-
         self.image_item = pg.ImageItem()
         self.addItem(self.image_item)
-
         self.setAspectLocked(True, 1)
 
         self.v_line = pg.InfiniteLine(0, angle=90, movable=False, pen='r')
         self.addItem(self.v_line)
-
         self.h_line = pg.InfiniteLine(0, angle=0, movable=False, pen='b')
         self.addItem(self.h_line)
-
         self.x_line = pg.InfiniteLine((0, 0), angle=0, movable=False, pen='g')
         self.addItem(self.x_line)
-
         self.y_line = pg.InfiniteLine((0, 0), angle=90, movable=False, pen='y')
         self.addItem(self.y_line)
 
     def update(self, img, x0, y0, angle):
-        self.img = img
-        self.x0 = x0
-        self.y0 = y0
-        self.angle = angle
-
-        self.image_item.setImage(self.img)
-        self.v_line.setPos((self.x0, self.y0))
-        self.h_line.setPos((self.x0, self.y0))
-
-        self.x_line.setPos((self.x0, self.y0))
-        self.x_line.setAngle(self.angle)
-
-        self.y_line.setPos((self.x0, self.y0))
-        self.y_line.setAngle(self.angle + 90)
+        self.image_item.setImage(img)
+        self.v_line.setPos((x0, y0))
+        self.h_line.setPos((x0, y0))
+        self.x_line.setPos((x0, y0))
+        self.x_line.setAngle(angle)
+        self.y_line.setPos((x0, y0))
+        self.y_line.setAngle(angle + 90)
 
 
 class FitVisualizationWindow(QWidget):
     def __init__(self, parent=None):
         super(FitVisualizationWindow, self).__init__(parent=parent)
-
         self.fit_struct = None
-
         self.setupUi()
         self.setup_plots()
         self.show()
