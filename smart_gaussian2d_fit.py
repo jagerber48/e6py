@@ -9,21 +9,21 @@ import matplotlib.pyplot as plt
 
 def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, angle=0, x_slope=0, y_slope=0):
     angle_rad = np.radians(angle)
-    rx = np.cos(angle_rad) * (x - x0) - np.sin(angle_rad) * (y - y0)
-    ry = np.sin(angle_rad) * (x - x0) + np.cos(angle_rad) * (y - y0)
+    rx = np.cos(angle_rad) * (x - x0) + np.sin(angle_rad) * (y - y0)
+    ry = -np.sin(angle_rad) * (x - x0) + np.cos(angle_rad) * (y - y0)
     return A * np.exp(-(1/2) * ((rx/sx)**2 + ((ry/sy)**2))) + offset + x_slope * (x-x0) + y_slope * (y-y0)
 
 
 def img_moments(img):
-    rvec = np.indices(img.shape)
+    y_inds, x_inds = np.indices(img.shape)
     tot = img.sum()
     if tot <= 0:
         raise ValueError('Integrated image intensity is negative, image may be too noisy. '
                          'Image statistics cannot be calculated.')
-    x0 = np.sum(img*rvec[0])/tot
-    y0 = np.sum(img*rvec[1])/tot
-    varx = np.sum(img * (rvec[0] - x0)**2) / tot
-    vary = np.sum(img * (rvec[1] - y0)**2) / tot
+    x0 = np.sum(img*x_inds)/tot
+    y0 = np.sum(img*y_inds)/tot
+    varx = np.sum(img * (x_inds - x0)**2) / tot
+    vary = np.sum(img * (y_inds - y0)**2) / tot
     if varx <= 0 or vary <= 0:
         raise ValueError('varx or vary is negative, image may be too noisy. '
                          'Image statistics cannot be calculated.')
@@ -34,8 +34,8 @@ def img_moments(img):
 
 def get_guess_values(img, quiet=True):
     # Get fit guess values
-    x_range = img.shape[0]
-    y_range = img.shape[1]
+    x_range = img.shape[1]
+    y_range = img.shape[0]
     A_guess = img.max()-img.min()
     B_guess = img.min()
     try:
@@ -71,8 +71,8 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
     # TODO: Catch error if center of fit is outside plot range
     img = fit_struct['data_img']
     model_img = fit_struct['model_img']
-    x_range = img.shape[0]
-    y_range = img.shape[1]
+    x_range = img.shape[1]
+    y_range = img.shape[0]
     x0 = int(round(fit_struct['x0']['val']))
     y0 = int(round(fit_struct['y0']['val']))
     sx = fit_struct['sx']['val']
@@ -148,8 +148,8 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
 
 
 def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
-    coords_arrays = np.indices(img.shape)
-    model_img = gaussian_2d(coords_arrays[0], coords_arrays[1], **popt_dict)
+    y_coords, x_coords = np.indices(img.shape)
+    model_img = gaussian_2d(x_coords, y_coords, **popt_dict)
     fit_struct = dict()
     fit_struct_param_keys = []
     for i, key in enumerate(popt_dict.keys()):
@@ -256,7 +256,7 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
     img_downsampled = scipy.ndimage.interpolation.zoom(img, 1 / zoom)
     if not quiet:
         print(f'Image downsampled by factor: {zoom:.1f}')
-    coords_arrays = np.indices(img_downsampled.shape)  # (2, x_range, y_range) array of coordinate labels
+    y_coords, x_coords = np.indices(img_downsampled.shape)
 
     p_guess = get_guess_values(img, quiet=quiet)
     param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset']
@@ -274,7 +274,7 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
         p_guess = np.append(p_guess, [0, 0])
 
     def img_cost_func(x):
-        return np.ravel(gaussian_2d(coords_arrays[0] * zoom, coords_arrays[1] * zoom,
+        return np.ravel(gaussian_2d(x_coords * zoom, y_coords * zoom,
                                     *x, **lock_params)
                         - img_downsampled)
     t_fit_start = time.time()
