@@ -13,14 +13,18 @@ class SliceAxisType(Enum):
 
 
 class GaussianIntegrateAxisPlot(pg.PlotItem):
-    VERTICAL = 0
-    HORIZONTAL = 1
-
     def __init__(self, *args, **kwargs):
         super(GaussianIntegrateAxisPlot, self).__init__(*args, **kwargs)
         self.setMouseEnabled(x=False, y=False)
 
     def update(self, data_img, model_img, slice_axis, sx, sy):
+        """
+        Integrate data along 1 axis of data_img and model_img and plot result.
+        For horizontal slice integrate along vertical axis and flip y-axis to put slice plot underneath image in
+        display.
+        for vertical slice integrate along horizontal axis and plot the data vertically to put slice plot to the side
+        of image in display.
+        """
         if slice_axis == SliceAxisType.VERTICAL:
             y_range = data_img.shape[0]
             integrate_axis = 1
@@ -84,14 +88,13 @@ class Gaussian2DPlot(pg.PlotItem):
 
 
 class FitVisualizationWindow(QWidget):
-    def __init__(self, fit_struct, parent=None):
+    def __init__(self, parent=None):
         super(FitVisualizationWindow, self).__init__(parent=parent)
 
-        self.fit_struct = fit_struct
+        self.fit_struct = None
 
         self.setupUi()
         self.setup_plots()
-        self.update()
         self.show()
 
     def setupUi(self):
@@ -124,8 +127,8 @@ class FitVisualizationWindow(QWidget):
         self.text_display_verticalLayout.addItem(QSpacerItem(14, 20, QSizePolicy.Minimum, QSizePolicy.Expanding))
         for key in self.fit_struct['param_keys']:
             label = QLabel()
-            val = self.fit_struct[key]['val']
-            std = self.fit_struct[key]['std']
+            val = round(self.fit_struct[key]['val'], 3)
+            std = round(self.fit_struct[key]['std'], 3)
             val_str = ufloat(val, std)
             label.setText(f'{str(key)} = {val_str}')
             self.text_display_verticalLayout.addWidget(label)
