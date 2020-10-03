@@ -67,7 +67,7 @@ def make_fit_param_dict(name, val, std, conf_level=erf(1 / np.sqrt(2)), dof=None
     return pdict
 
 
-def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=None):
+def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
     # TODO: Catch error if center of fit is outside plot range
     img = fit_struct['data_img']
     model_img = fit_struct['model_img']
@@ -111,18 +111,12 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
     x_int_cut_model = np.sum(model_img, axis=1) / np.sqrt(2 * np.pi * sy**2)
     ax_x_line.plot(x_int_cut_dat, range(x_range), 'o', zorder=1)
     ax_x_line.plot(x_int_cut_model, range(x_range), zorder=2)
-    # ax_x_line.invert_yaxis()
     ax_x_line.yaxis.tick_right()
     ax_x_line.xaxis.tick_top()
     ax_x_line.set_xlabel('Integrated Intensity')
     ax_x_line.xaxis.set_label_position('top')
-    try:
-        # x_line_cut_dat = img[:, y0]
-        ax_data.axvline(y0, linestyle='--')
-        ax_fit.axvline(y0, linestyle='--')
-        # ax_x_line.plot(x_line_cut_dat, range(x_range), 'o', zorder=0)
-    except IndexError as e:
-        print(e)
+    ax_data.axvline(y0, linestyle='--')
+    ax_fit.axvline(y0, linestyle='--')
 
     # Y Linecut Plot
     ax_y_line = fig.add_subplot(2, 2, 3, position=[0.1, 0.1, 0.25, 0.35])
@@ -132,17 +126,11 @@ def make_visualization_figure(fit_struct, param_keys, show_plot=True, save_name=
     ax_y_line.plot(range(y_range), y_int_cut_model, zorder=2)
     ax_y_line.invert_yaxis()
     ax_y_line.set_ylabel('Integrated Intensity')
-    try:
-        # y_line_cut_dat = img[x0, :]
-        ax_data.axhline(x0, linestyle='--')
-        ax_fit.axhline(x0, linestyle='--')
-        # ax_y_line.plot(range(y_range), y_line_cut_dat, 'o', zorder=0)
-    except IndexError as e:
-        print(e)
+    ax_data.axhline(x0, linestyle='--')
+    ax_fit.axhline(x0, linestyle='--')
 
-    dict_param_keys = param_keys
     print_str = ''
-    for key in dict_param_keys:
+    for key in fit_struct['param_keys']:
         param = fit_struct[key]
         print_str += f"{key} = {param['val']:.1f} +- {param['err_half_range']:.3f}\n"
     fig.text(.8, .5, print_str)
@@ -163,9 +151,12 @@ def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
     coords_arrays = np.indices(img.shape)
     model_img = gaussian_2d(coords_arrays[0], coords_arrays[1], **popt_dict)
     fit_struct = dict()
+    fit_struct_param_keys = []
     for i, key in enumerate(popt_dict.keys()):
         fit_param_dict = make_fit_param_dict(key, popt_dict[key], np.sqrt(pcov[i, i]), conf_level, dof)
         fit_struct[key] = fit_param_dict
+        fit_struct_param_keys.append(key)
+    fit_struct['param_keys'] = fit_struct_param_keys
     fit_struct['cov'] = pcov
     fit_struct['data_img'] = img
     fit_struct['model_img'] = model_img
@@ -335,6 +326,6 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
 
     fit_struct = create_fit_struct(img, popt_dict, cov, conf_level, dof)
     if show_plot or (save_name is not None):
-        make_visualization_figure(fit_struct, param_keys, show_plot, save_name)
+        make_visualization_figure(fit_struct, show_plot, save_name)
 
     return fit_struct
