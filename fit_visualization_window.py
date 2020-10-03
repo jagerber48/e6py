@@ -25,6 +25,7 @@ class GaussianIntegrateAxisPlot(pg.PlotItem):
         for vertical slice integrate along horizontal axis and plot the data vertically to put slice plot to the side
         of image in display.
         """
+        self.clear()
         if slice_axis == SliceAxisType.VERTICAL:
             y_range = data_img.shape[0]
             integrate_axis = 1
@@ -106,6 +107,8 @@ class FitVisualizationWindow(QWidget):
         self.vertical_cut_plot.setYLink(self.data_plot.getViewBox())
 
     def update_text_display(self):
+        clearLayout(self.text_display_verticalLayout)
+
         self.text_display_verticalLayout.addItem(QSpacerItem(14, 20, QSizePolicy.Minimum, QSizePolicy.Expanding))
         for key in self.fit_struct['param_keys']:
             label = QLabel()
@@ -134,3 +137,10 @@ class FitVisualizationWindow(QWidget):
                                       sx=sx, sy=sy)
         self.data_plot.autoRange()
         self.update_text_display()
+
+
+def clearLayout(layout):
+  while layout.count():
+    child = layout.takeAt(0)
+    if child.widget():
+      child.widget().deleteLater()
