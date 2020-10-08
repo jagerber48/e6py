@@ -228,6 +228,7 @@ def counts_mean_and_std(analysis_dict):
         ref_counts_std = np.std(ref_counts)
         counts_analysis_dict['ref_counts_mean'][point_key] = ref_counts_mean
         counts_analysis_dict['ref_counts_std'][point_key] = ref_counts_std
+    analysis_dict.save_dict()
 
 
 def threshold_discrimination_analysis(analysis_dict, threshold):
@@ -238,8 +239,17 @@ def threshold_discrimination_analysis(analysis_dict, threshold):
     loop_nums = analysis_dict['loop_nums']
     num_points = analysis_dict['num_points']
     
-    threshold_discrimination_dict = dict()
-
+    td_dict = dict()
+    analysis_dict['threshold_analysis'] = td_dict
+    td_dict['threshold'] = threshold
+    td_dict['loops_above'] = dict()
+    td_dict['shots_above'] = dict()
+    td_dict['num_above'] = dict()
+    td_dict['fraction_above'] = dict()
+    td_dict['loops_below'] = dict()
+    td_dict['shots_below'] = dict()
+    td_dict['num_below'] = dict()
+    td_dict['fraction_below'] = dict()
 
     for point in range(num_points):
         point_key = f'point-{point:d}'
@@ -251,12 +261,17 @@ def threshold_discrimination_analysis(analysis_dict, threshold):
         shots_above = point_shot_list[loops_above]
         num_above = len(loops_above)
         fraction_above = num_above / num_loops
+        td_dict['loops_above'][point_key] = loops_above
+        td_dict['shots_above'][point_key] = shots_above
+        td_dict['num_above'][point_key] = num_above
+        td_dict['fraction_above'] = fraction_above
 
         loops_below = np.where(counts <= threshold)
         shots_below = point_shot_list[loops_below]
         num_below = len(loops_below)
         fraction_below = num_below / num_loops
-
-
-
-
+        td_dict['loops_below'][point_key] = loops_below
+        td_dict['shots_below'][point_key] = shots_below
+        td_dict['num_below'][point_key] = num_below
+        td_dict['fraction_below'] = fraction_below
+    analysis_dict.save_dict()
