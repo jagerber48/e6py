@@ -98,12 +98,12 @@ def display_images(daily_path, run_name, imaging_system_name, file_prefix='jkam_
             fig = fig_dict[point_key]
             ax_atom_single = fig.add_subplot(2, 2, 1)
             im = ax_atom_single.imshow(atom_frame, vmin=min_val, vmax=max_val, cmap=cmap)
-            plt.colorbar(im, ax=ax_atom_single)
+            fig.colorbar(im, ax=ax_atom_single)
             ax_atom_single.set_title(f'{run_name}:  Single Atom Shot - Point {point} - Shot #{shot_num}')
 
             ax_ref_single = fig.add_subplot(2, 2, 2)
             im = ax_ref_single.imshow(ref_frame, vmin=min_val, vmax=max_val, cmap=cmap)
-            plt.colorbar(im, ax=ax_ref_single)
+            fig.colorbar(im, ax=ax_ref_single)
             ax_ref_single.set_title(f'{run_name}: Single Ref Shot - Point {point} -  Shot #{shot_num}')
 
     for point in range(num_points):
@@ -120,12 +120,12 @@ def display_images(daily_path, run_name, imaging_system_name, file_prefix='jkam_
 
         ax_atom_avg = fig.add_subplot(2, 2, 3)
         im = ax_atom_avg.imshow(atom_frame_avg, vmin=min_val, vmax=max_val, cmap=cmap)
-        plt.colorbar(im, ax=ax_atom_avg)
+        fig.colorbar(im, ax=ax_atom_avg)
         ax_atom_avg.set_title(f'{run_name}: Avg Atom Shot - Point {point} - {loop_num_by_point[point_key]} Loops')
 
         ax_ref_avg = fig.add_subplot(2, 2, 4)
         im = ax_ref_avg.imshow(ref_frame_avg, vmin=min_val, vmax=max_val, cmap=cmap)
-        plt.colorbar(im, ax=ax_ref_avg)
+        fig.colorbar(im, ax=ax_ref_avg)
         ax_ref_avg.set_title(f'{run_name}: Avg Ref Shot - Point {point} - {loop_num_by_point[point_key]} Loops')
 
         fig.savefig(Path(analysis_path, f'images - Point {point:d}.png'))
