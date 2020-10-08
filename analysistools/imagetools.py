@@ -255,7 +255,7 @@ def threshold_discrimination_analysis(analysis_dict, threshold):
         point_key = f'point-{point:d}'
         point_shot_list = shot_list[point_key]
         num_loops = loop_nums[point_key]
-        counts = counts_dict[point_key]
+        counts = np.array(counts_dict[point_key])
 
         loops_above = np.where(counts > threshold)
         shots_above = point_shot_list[loops_above]
