@@ -135,7 +135,7 @@ def display_images(daily_path, run_name, imaging_system_name, file_prefix='jkam_
     analysis_dict.save_dict()
 
 
-def count_analysis(daily_path, run_name, imaging_system_name, file_prefix='jkam_capture', conversion_gain=1,
+def counts_analysis(daily_path, run_name, imaging_system_name, file_prefix='jkam_capture', conversion_gain=1,
                    roi_slice=None, num_points=1, start_shot=0, stop_shot=None, transpose=False,
                    **hist_kwargs):
     datastream_path = datatools.get_datastream_path(daily_path, run_name, imaging_system_name)
@@ -198,4 +198,64 @@ def count_analysis(daily_path, run_name, imaging_system_name, file_prefix='jkam_
     plt.show()
 
     analysis_dict['counts_analysis'] = counts_analysis_dict
+    counts_mean_and_std(analysis_dict)
     analysis_dict.save_dict()
+
+
+def counts_mean_and_std(analysis_dict):
+    counts_analysis_dict = analysis_dict['counts_analysis']
+
+    counts_analysis_dict['counts_mean'] = dict()
+    counts_analysis_dict['counts_std'] = dict()
+    counts_analysis_dict['ref_counts_mean'] = dict()
+    counts_analysis_dict['ref_counts_std'] = dict()
+
+    counts_dict = counts_analysis_dict['counts']
+    ref_counts_dict = counts_analysis_dict['ref_counts']
+    num_points = analysis_dict['num_points']
+
+    for point in range(num_points):
+        point_key = f'point-{point:d}'
+        counts = counts_dict[point_key]
+        counts_mean = np.mean(counts)
+        counts_std = np.std(counts)
+        counts_analysis_dict['counts_mean'][point_key] = counts_mean
+        counts_analysis_dict['counts_std'][point_key] = counts_std
+
+        ref_counts = ref_counts_dict[point_key]
+        ref_counts_mean = np.mean(ref_counts)
+        ref_counts_std = np.std(ref_counts)
+        counts_analysis_dict['ref_counts_mean'][point_key] = ref_counts_mean
+        counts_analysis_dict['ref_counts_std'][point_key] = ref_counts_std
+
+
+def threshold_discrimination_analysis(analysis_dict, threshold):
+    # TODO: Run on reference data
+    counts_analysis_dict = analysis_dict['counts_analysis']
+    counts_dict = counts_analysis_dict['counts']
+    shot_list = analysis_dict['shot_list']
+    loop_nums = analysis_dict['loop_nums']
+    num_points = analysis_dict['num_points']
+    
+    threshold_discrimination_dict = dict()
+
+
+    for point in range(num_points):
+        point_key = f'point-{point:d}'
+        point_shot_list = shot_list[point_key]
+        num_loops = loop_nums[point_key]
+        counts = counts_dict[point_key]
+
+        loops_above = np.where(counts > threshold)
+        shots_above = point_shot_list[loops_above]
+        num_above = len(loops_above)
+        fraction_above = num_above / num_loops
+
+        loops_below = np.where(counts <= threshold)
+        shots_below = point_shot_list[loops_below]
+        num_below = len(loops_below)
+        fraction_below = num_below / num_loops
+
+
+
+
