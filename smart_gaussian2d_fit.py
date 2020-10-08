@@ -86,7 +86,7 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
 
     # Data 2D Plot
     ax_data = fig.add_subplot(2, 2, 1, position=[0.1, 0.5, 0.25, 0.35])
-    ax_data.imshow(img, vmin=img_min, vmax=img_max, cmap='binary')
+    ax_data.imshow(img, vmin=img_min, vmax=img_max, cmap='binary_r')
     # TODO: check aspect ratio
     ax_data.set_aspect(y_range / x_range)
     ax_data.xaxis.tick_top()
@@ -98,7 +98,7 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
 
     # Fit 2D Plot
     ax_fit = fig.add_subplot(2, 2, 4, position=[0.4, 0.1, 0.25, 0.35])
-    ax_fit.imshow(model_img, vmin=img_min, vmax=img_max, cmap='binary')
+    ax_fit.imshow(model_img, vmin=img_min, vmax=img_max, cmap='binary_r')
     ax_fit.set_aspect(y_range / x_range)
     ax_fit.yaxis.tick_right()
     ax_fit.set_xlabel('Horizontal Position')
