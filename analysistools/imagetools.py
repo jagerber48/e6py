@@ -11,8 +11,6 @@ def get_image(file_path, image_key, roi_slice=None):
         roi_slice = slice(None, None)
     h5_file = h5py.File(file_path, 'r')
     image = h5_file[image_key][roi_slice].astype(float)
-    # if roi_slice is not None:
-    #     image = image[roi_slice]
     return image
 
 
@@ -49,6 +47,7 @@ def display_images(daily_path, run_name, imaging_system_name, file_prefix='jkam_
 
     display_images_analysis_dict = dict()
     display_images_analysis_dict['conversion_gain'] = conversion_gain
+    display_images_analysis_dict['roi_slice'] = roi_slice
     show_shot_dict = dict()
     atom_frame_avg_dict = dict()
     ref_frame_avg_dict = dict()
@@ -136,8 +135,8 @@ def display_images(daily_path, run_name, imaging_system_name, file_prefix='jkam_
 
 
 def counts_analysis(daily_path, run_name, imaging_system_name, file_prefix='jkam_capture', conversion_gain=1,
-                   roi_slice=None, num_points=1, start_shot=0, stop_shot=None, transpose=False,
-                   **hist_kwargs):
+                    roi_slice=None, num_points=1, start_shot=0, stop_shot=None, transpose=False,
+                    **hist_kwargs):
     datastream_path = datatools.get_datastream_path(daily_path, run_name, imaging_system_name)
     num_shots = datatools.get_num_files(datastream_path)
     final_shot = stop_shot
