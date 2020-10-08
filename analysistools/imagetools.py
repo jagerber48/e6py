@@ -264,7 +264,7 @@ def threshold_discrimination_analysis(analysis_dict, threshold):
         td_dict['loops_above'][point_key] = loops_above
         td_dict['shots_above'][point_key] = shots_above
         td_dict['num_above'][point_key] = num_above
-        td_dict['fraction_above'] = fraction_above
+        td_dict['fraction_above'][point_key] = fraction_above
 
         loops_below = np.where(counts <= threshold)[0]
         shots_below = point_shot_list[loops_below]
@@ -273,5 +273,5 @@ def threshold_discrimination_analysis(analysis_dict, threshold):
         td_dict['loops_below'][point_key] = loops_below
         td_dict['shots_below'][point_key] = shots_below
         td_dict['num_below'][point_key] = num_below
-        td_dict['fraction_below'] = fraction_below
+        td_dict['fraction_below'][point_key] = fraction_below
     analysis_dict.save_dict()
