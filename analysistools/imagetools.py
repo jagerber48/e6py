@@ -150,6 +150,8 @@ def counts_analysis(daily_path, run_name, imaging_system_name, file_prefix='jkam
     loop_num_by_point = analysis_dict['loop_nums']
 
     counts_analysis_dict = dict()
+    counts_analysis_dict['conversion_gain'] = conversion_gain
+    counts_analysis_dict['roi_slice'] = roi_slice
     counts_dict = dict()
     ref_counts_dict = dict()
     counts_analysis_dict['counts'] = counts_dict
