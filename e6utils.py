@@ -14,6 +14,7 @@ def lin_fit_func(x, *params):
     b = params[1]
     return m * x + b
 
+
 def lin_fit_func_fixed_zero(x, *params):
     m = params[0]
     return m * x
@@ -244,37 +245,3 @@ def e_field_to_intensity(E):
 
 def intensity_to_e_field(intensity):
     return np.sqrt(2*intensity/(c*ep0))
-
-
-def shot_to_loop_and_point(shot, num_points=1, shot_start=0, loop_start=0, point_start=0):
-    """
-    Convert shot number to loop and point using the number of points. Default assumption is indexing for
-    shot, loop, and point all starts from zero with options for other conventions.
-    """
-    shot_ind = shot - shot_start
-    loop_ind = shot_ind  // num_points
-    point_ind = shot_ind % num_points
-    loop = loop_ind + loop_start
-    point = point_ind + point_start
-    return loop, point
-
-
-def loop_and_point_to_shot(loop, point, num_points=1, shot_start=0, loop_start=0, point_start=0):
-    """
-    Convert loop and point to shot number using the number of points. Default assumption is indexing for
-    shot, loop, and point all starts from zero with options for other conventions.
-    """
-    loop_ind = loop - loop_start
-    point_ind = point - point_start
-    shot_ind = loop_ind * num_points + point_ind
-    shot = shot_ind + shot_start
-    return shot
-
-
-def get_shots_from_point(point, num_points, final_shot, shot_start=0, point_start=0):
-    stop_ind = final_shot - shot_start
-    point_ind = point - point_start
-    shots_ind = np.arange(point_ind, stop_ind, num_points)
-    shots = shots_ind + shot_start
-    num_loops = len(shots)
-    return shots, num_loops

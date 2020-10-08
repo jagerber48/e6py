@@ -2,14 +2,15 @@ import numpy as np
 from pathlib import Path
 import h5py
 import matplotlib.pyplot as plt
-from .. import datatools
+from . import datatools
+from .datatools import AnalysisDict
 
 
-def get_image(file_path, image_key, roi_slice=None):
+def get_image(file_path, image_key, roi_slice=slice(None, None)):
     h5_file = h5py.File(file_path, 'r')
-    image = h5_file[image_key][:].astype(float)
-    if roi_slice is not None:
-        image = image[roi_slice]
+    image = h5_file[image_key][roi_slice].astype(float)
+    # if roi_slice is not None:
+    #     image = image[roi_slice]
     return image
 
 
@@ -32,7 +33,10 @@ def roi_from_center_pixel(center_pixel, pixel_half_ranges):
 def display_images(daily_path, run_name, imaging_system_name,
                    roi_slice=None, num_points=1, start_shot=0, transpose=False):
     datastream_path = datatools.get_datastream_path(daily_path, run_name, imaging_system_name)
-    num_shots = datatools.get_max_file_number(datastream_path)
+    num_shots = datatools.get_num_files(datastream_path)
+
+    analysis_dict = AnalysisDict(daily_path, run_name)
+    analysis_dict.set_shot_lists(num_points, num_shots)
 
     point_shots_dict = dict()
     point_loop_num_dict = dict()
