@@ -31,7 +31,8 @@ def roi_from_center_pixel(center_pixel, pixel_half_ranges):
 
 
 def display_images(daily_path, run_name, imaging_system_name, file_prefix='jkam_capture', conversion_gain=1,
-                   roi_slice=None, num_points=1, start_shot=0, stop_shot=None, transpose=False):
+                   roi_slice=None, num_points=1, start_shot=0, stop_shot=None, transpose=False,
+                   analyzer_name='display_images_analysis'):
     datastream_path = datatools.get_datastream_path(daily_path, run_name, imaging_system_name)
     num_shots = datatools.get_num_files(datastream_path)
     final_shot = stop_shot
@@ -130,12 +131,13 @@ def display_images(daily_path, run_name, imaging_system_name, file_prefix='jkam_
         fig.savefig(Path(analysis_path, f'images - Point {point:d}.png'))
     plt.show()
 
-    analysis_dict['display_images_analysis'] = display_images_analysis_dict
+    analysis_dict[analyzer_name] = display_images_analysis_dict
     analysis_dict.save_dict()
 
 
 def counts_analysis(daily_path, run_name, imaging_system_name, file_prefix='jkam_capture', conversion_gain=1,
                     roi_slice=None, num_points=1, start_shot=0, stop_shot=None, transpose=False,
+                    analyzer_name='counts_analysis',
                     **hist_kwargs):
     datastream_path = datatools.get_datastream_path(daily_path, run_name, imaging_system_name)
     num_shots = datatools.get_num_files(datastream_path)
@@ -198,7 +200,7 @@ def counts_analysis(daily_path, run_name, imaging_system_name, file_prefix='jkam
         fig.savefig(Path(analysis_path, f'counts - Point {point}.png'))
     plt.show()
 
-    analysis_dict['counts_analysis'] = counts_analysis_dict
+    analysis_dict[analyzer_name] = counts_analysis_dict
     counts_mean_and_std(analysis_dict)
     analysis_dict.save_dict()
 

@@ -105,5 +105,8 @@ class AnalysisDict:
     def __str__(self):
         return self.analysis_dict.__str__()
 
+    def __delitem__(self, key):
+        del self.analysis_dict[key]
+
     def keys(self):
         return self.analysis_dict.keys()
