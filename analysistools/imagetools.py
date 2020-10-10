@@ -35,19 +35,27 @@ def roi_from_center_pixel(center_pixel, pixel_half_ranges):
 def calculate_absorption_images(daily_path, run_name, imaging_system=SideImagingSystem(), file_prefix='jkam_capture',
                                 roi_slice=None, num_points=1, start_shot=0, stop_shot=None,
                                 analyzer_name=''):
-    datastream_path = datatools.get_datastream_path(daily_path, run_name, datastream_name=imaging_system.name)
-    analyzed_images_path = Path(daily_path, 'analysis', run_name, 'absorption images')
-    Path(analyzed_images_path, 'OD').mkdir(parents=True, exist_ok=True)
-    Path(analyzed_images_path, 'atom_number').mkdir(parents=True, exist_ok=True)
-
+    datastream_path = datatools.get_datastream_path(daily_path, run_name, imaging_system.name)
     num_shots = datatools.get_num_files(datastream_path)
     final_shot = stop_shot
     if final_shot is None:
         final_shot = num_shots - 1
 
+    analysis_dict = AnalysisDict(daily_path, run_name)
+    analysis_dict.set_shot_lists(num_shots, num_points=num_points, start_shot=start_shot, stop_shot=stop_shot)
+    analysis_path = analysis_dict.analysis_path
+
+    analyzed_images_path = Path(analysis_path, 'absorption images')
+    od_path = Path(analyzed_images_path, 'OD')
+    od_path.mkdir(parents=True, exist_ok=True)
+    atom_number_path = Path(analyzed_images_path, 'atom_number')
+    atom_number_path.mkdir(parents=True, exist_ok=True)
+
+    analysis_dict['absorption_images_analysis'] = dict()
+    analysis_dict['absorption_images_analysis']['roi_slice'] = roi_slice
+    analysis_dict['absorption_images_analysis']['imaging_system_name'] = imaging_system.name
+
     for shot_num in range(start_shot, final_shot + 1):
-        loop, point = shot_to_loop_and_point(shot_num, num_points=num_points)
-        # point_key = f'point-{point:d}'
         file_name = f'{file_prefix}_{shot_num:05d}.h5'
         file_path = Path(datastream_path, file_name)
 
@@ -58,12 +66,39 @@ def calculate_absorption_images(daily_path, run_name, imaging_system=SideImaging
         optical_density, atom_number = analyzer.absorption_od_and_number(atom_frame,
                                                                          bright_frame,
                                                                          dark_frame)
-        od_file_path = Path(analyzed_images_path, 'OD', f'OD_capture_{shot_num:05d}.h5')
+        od_file_path = Path(od_path, f'OD_capture_{shot_num:05d}.h5')
         with h5py.File(str(od_file_path), 'w') as hf:
             hf.create_dataset('od_frame', data=optical_density.astype('uint16'))
-        atom_number_file_path = Path(analyzed_images_path, 'atom_number', f'atom_number_capture_{shot_num:05d}.h5')
+        atom_number_file_path = Path(atom_number_path, f'atom_number_capture_{shot_num:05d}.h5')
         with h5py.File(str(atom_number_file_path), 'w') as hf:
             hf.create_dataset('atom_number_frame', data=atom_number.astype('uint16'))
+
+    analysis_dict.save_dict()
+
+
+def absorption_atom_number(daily_path, run_name, file_prefix='atom_number_capture', roi_slice=None):
+    analysis_dict = AnalysisDict(daily_path, run_name)
+    analysis_path = analysis_dict.analysis_path
+
+    atom_number_path = Path(analysis_path, 'absorption images', 'atom_number')
+
+    start_shot = analysis_dict['start_shot']
+    num_shots = analysis_dict['num_shots']
+    num_points = analysis_dict['num_points']
+
+    shot_list_by_point = analysis_dict['shot_list']
+    loop_num_by_point = analysis_dict['loop_nums']
+
+    show_shot_dict = dict()
+    atom_frame_avg_dict = dict()
+
+    for shot_num in range(start_shot, num_shots):
+        loop, point = shot_to_loop_and_point(shot_num, num_points=num_points)
+        point_key = f'point-{point:d}'
+        file_name = f'{file_prefix}_{shot_num:05d}.h5'
+        file_path = Path(atom_number_path, file_name)
+
+        atom_frame = get_image(file_path, 'atom_frame', roi_slice=roi_slice)
 
 
 def display_images(daily_path, run_name, imaging_system_name, file_prefix='jkam_capture', conversion_gain=1,
