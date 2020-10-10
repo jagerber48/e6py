@@ -4,6 +4,8 @@ import h5py
 import matplotlib.pyplot as plt
 from . import datatools
 from .datatools import AnalysisDict, shot_to_loop_and_point
+from .absorptionanalysis import AbsorptionAnalyzer
+from .camerasettings import SideImagingSystem
 
 
 def get_image(file_path, image_key, roi_slice=None):
@@ -28,6 +30,40 @@ def roi_from_center_pixel(center_pixel, pixel_half_ranges):
     y_slice = slice(y_lower, y_upper, 1)
 
     return tuple((y_slice, x_slice))
+
+
+def calculate_absorption_images(daily_path, run_name, imaging_system=SideImagingSystem(), file_prefix='jkam_capture',
+                                roi_slice=None, num_points=1, start_shot=0, stop_shot=None,
+                                analyzer_name=''):
+    datastream_path = datatools.get_datastream_path(daily_path, run_name, datastream_name=imaging_system.name)
+    analyzed_images_path = Path(daily_path, 'analysis', run_name, 'absorption images')
+    Path(analyzed_images_path, 'OD').mkdir(parents=True, exist_ok=True)
+    Path(analyzed_images_path, 'atom_number').mkdir(parents=True, exist_ok=True)
+
+    num_shots = datatools.get_num_files(datastream_path)
+    final_shot = stop_shot
+    if final_shot is None:
+        final_shot = num_shots - 1
+
+    for shot_num in range(start_shot, final_shot + 1):
+        loop, point = shot_to_loop_and_point(shot_num, num_points=num_points)
+        # point_key = f'point-{point:d}'
+        file_name = f'{file_prefix}_{shot_num:05d}.h5'
+        file_path = Path(datastream_path, file_name)
+
+        atom_frame = get_image(file_path, 'atom_frame', roi_slice=roi_slice)
+        bright_frame = get_image(file_path, 'bright_frame', roi_slice=roi_slice)
+        dark_frame = get_image(file_path, 'dark_frame', roi_slice=roi_slice)
+        analyzer = AbsorptionAnalyzer(imaging_system=SideImagingSystem)
+        optical_density, atom_number = analyzer.absorption_od_and_number(atom_frame,
+                                                                         bright_frame,
+                                                                         dark_frame)
+        od_file_path = Path(analyzed_images_path, 'OD', f'OD_capture_{shot_num:05d}.h5')
+        with h5py.File(str(od_file_path), 'w') as hf:
+            hf.create_dataset('od_frame', data=optical_density.astype('uint16'))
+        atom_number_file_path = Path(analyzed_images_path, 'atom_number', f'atom_number_capture_{shot_num:05d}.h5')
+        with h5py.File(str(atom_number_file_path), 'w') as hf:
+            hf.create_dataset('atom_number_frame', data=atom_number.astype('uint16'))
 
 
 def display_images(daily_path, run_name, imaging_system_name, file_prefix='jkam_capture', conversion_gain=1,
