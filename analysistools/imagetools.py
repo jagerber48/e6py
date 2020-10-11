@@ -152,7 +152,7 @@ def display_images(daily_path, run_name, imaging_system_name, file_prefix='jkam_
 
         atom_frame = get_image(file_path, 'atom_frame', roi_slice=roi_slice)
         atom_frame = atom_frame / conversion_gain
-        ref_frame = get_image(file_path, 'reference_frame', roi_slice=roi_slice)
+        ref_frame = get_image(file_path, 'ref_frame', roi_slice=roi_slice)
         ref_frame = ref_frame / conversion_gain
 
         if atom_frame_avg_dict[point_key] is None:
@@ -249,7 +249,7 @@ def counts_analysis(daily_path, run_name, imaging_system_name, file_prefix='jkam
 
         atom_frame = get_image(file_path, 'atom_frame', roi_slice=roi_slice)
         atom_frame = atom_frame / conversion_gain
-        ref_frame = get_image(file_path, 'reference_frame', roi_slice=roi_slice)
+        ref_frame = get_image(file_path, 'ref_frame', roi_slice=roi_slice)
         ref_frame = ref_frame / conversion_gain
 
         counts = np.nansum(atom_frame)
