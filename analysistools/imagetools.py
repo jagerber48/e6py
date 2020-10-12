@@ -358,7 +358,7 @@ class CountsAnalyzer(Analyzer):
         self.roi_slice = roi_slice
 
     def analyze_shot(self, shot_num=0):
-        file_path = self.datastream.get_file_path(shot_num)
+        file_path = self.data_stream.get_file_path(shot_num)
         frame = get_image(file_path, self.frame_name, roi_slice=self.roi_slice)
         counts = np.nansum(frame)
         return counts

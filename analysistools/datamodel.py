@@ -8,10 +8,19 @@ class DataModel:
     def __init__(self, daily_path, run_name, datastream_list=None):
         self.daily_path = daily_path
         self.run_name = run_name
+
         self.datastream_dict = dict()
+        self.num_shots = datastream_list[0].num_shots
+
+        all_num_shots_equal = True
         for datastream in datastream_list:
             self.datastream_dict[datastream.name] = datastream
-        self.datastream_list = datastream_list
+            if datastream.num_shots != self.num_shots:
+                all_num_shots_equal = False
+        if not all_num_shots_equal:
+            print('Warning, data streams' + ', '.join([datastream.name for datastream in datastream_list]) +
+                  f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
+
         self.data_dict = DataModelDict(self.daily_path, self.run_name)
 
     def run_analyzer(self, analyzer_key):
@@ -20,6 +29,18 @@ class DataModel:
     def load_shot_from_datastream(self, datastream_name, shot_num=0):
         datastream = self.datastream_dict[datastream_name]
         return datastream.load_shot_h5(shot_num)
+    
+    def set_shot_lists(self, num_shots, num_points=1):
+        self.data_dict['num_points'] = num_points
+        self.data_dict['num_shots'] = num_shots
+        self.data_dict['shot_list'] = dict()
+        self.data_dict['loop_nums'] = dict()
+        for point in range(num_points):
+            key = f'point-{point:d}'
+            point_shots, point_loops = get_shot_list_from_point(point, num_points, num_shots)
+            self.data_dict['shot_list'][key] = point_shots
+            self.data_dict['loop_nums'][key] = point_loops
+        self.data_dict.save_dict()
 
 
 class RawDataStream:
@@ -29,6 +50,7 @@ class RawDataStream:
         self.run_name = run_name
         self.file_prefix = file_prefix
         self.data_path = Path(self.daily_path, 'data', run_name, name)
+        self.num_shots = self.get_num_shots()
 
     def get_file_path(self, shot_num):
         file_name = f'{self.file_prefix}_{shot_num:05d}.h5'
@@ -40,6 +62,11 @@ class RawDataStream:
         h5_file = h5py.File(file_name, 'r')
         return h5_file
 
+    def get_num_shots(self):
+        file_list = list(self.data_path.glob('*.h5'))
+        self.num_shots = len(file_list)
+        return self.num_shots
+
 
 class Analyzer:
     def __init__(self, data_model, data_stream: RawDataStream, output_field_list=(), analyzer_name='analyzer'):
@@ -49,10 +76,15 @@ class Analyzer:
         self.analyzer_name = analyzer_name
         self.num_points = self.data_model['num_points']
         self.num_shots = self.data_model['num_shots']
-        self.analysis_dict = dict()
+        self.analyzer_dict = dict()
 
         for field in output_field_list:
-            self.analysis_dict[field] = dict()
+            self.analyzer_dict[field] = dict()
+
+        self.add_to_data_model()
+
+    def add_to_data_model(self):
+        self.data_model[self.analyzer_name] = self.analyzer_dict
 
     def analyze_shot(self, shot_num=0):
         raise NotImplementedError
@@ -63,11 +95,11 @@ class Analyzer:
             point_key = f'point-{point:d}'
             result_list = self.analyze_shot(shot_num)
             for ind, field in enumerate(self.output_field_list):
-                self.analysis_dict[field][point_key] = result_list[ind]
+                self.analyzer_dict[field][point_key] = result_list[ind]
 
 
 class DataModelDict:
-    def __init__(self, daily_path, run_name):
+    def __init__(self, daily_path, run_name, num_shots=None):
         self.daily_path = daily_path
         self.run_name = run_name
         self.dir_path = Path(self.daily_path, 'analysis', self.run_name)
@@ -88,21 +120,6 @@ class DataModelDict:
 
     def save_dict(self):
         pickle.dump(self.data_dict, open(self.file_path, 'wb'))
-
-    def set_shot_lists(self, num_shots, num_points=1, start_shot=0, stop_shot=None):
-        self['num_points'] = num_points
-        self['start_shot'] = start_shot
-        self['num_shots'] = num_shots
-        self['shot_list'] = dict()
-        self['loop_nums'] = dict()
-        for point in range(num_points):
-            key = f'point-{point:d}'
-            point_shots, point_loops = get_shot_list_from_point(point, num_points, num_shots,
-                                                                start_shot=start_shot,
-                                                                stop_shot=stop_shot)
-            self['shot_list'][key] = point_shots
-            self['loop_nums'][key] = point_loops
-        self.save_dict()
 
     def __getitem__(self, item):
         return self.data_dict[item]
