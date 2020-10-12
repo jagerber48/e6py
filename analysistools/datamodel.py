@@ -5,6 +5,18 @@ import pickle
 import h5py
 
 
+def get_shot_list_from_point(point, num_points, num_shots, start_shot=0, stop_shot=None):
+    # TODO: Implement different conventions for shot and point start indices
+    shots = np.arange(point, num_shots, num_points)
+    start_mask = start_shot <= shots
+    shots = shots[start_mask]
+    if stop_shot is not None:
+        stop_mask = shots <= stop_shot
+        shots = shots[stop_mask]
+    num_loops = len(shots)
+    return shots, num_loops
+
+
 class DataModel:
     def __init__(self, daily_path, run_name, num_points=1, datastream_list=None, analyzer_list=None,
                  reporter_list=None, reset_hard=False):
@@ -116,6 +128,58 @@ class Analyzer:
                 analyzer_dict[key][point_key].append(value)
 
 
+def shot_to_loop_and_point(shot, num_points=1, shot_index_convention=0,
+                           loop_index_convention=0, point_index_convention=0):
+    """
+    Convert shot number to loop and point using the number of points. Default assumption is indexing for
+    shot, loop, and point all starts from zero with options for other conventions.
+    """
+    shot_ind = shot - shot_index_convention
+    loop_ind = shot_ind // num_points
+    point_ind = shot_ind % num_points
+    loop = loop_ind + loop_index_convention
+    point = point_ind + point_index_convention
+    return loop, point
+
+
+class Reporter:
+    def __init__(self, x_axis_keychain, y_axis_keychains, reporter_name, x_label, y_label):
+        self.x_axis_keychain = x_axis_keychain
+        if not isinstance(y_axis_keychains, (list, tuple)):
+            y_axis_keychains = [y_axis_keychains]
+        self.y_axis_keychain_list = y_axis_keychains
+        self.reporter_name = reporter_name
+        self.x_label = x_label
+        self.y_label = y_label
+
+    def report_run(self, data_dict):
+        num_points = data_dict['num_points']
+        for point in range(num_points):
+            x_data, y_data_list = self.get_xy_data(data_dict, point)
+            self.report(x_data, y_data_list)
+
+    def report(self, x_data, y_data):
+        raise NotImplementedError
+
+    @staticmethod
+    def dataset_from_keychain(data_dict, keychain):
+        data = reduce(lambda x, y: x[y], keychain.split('/'), data_dict)
+        return data
+
+    def get_xy_data(self, data_dict, point):
+        if self.x_axis_keychain is not None:
+            x_data = self.dataset_from_keychain(data_dict, self.x_axis_keychain)
+        else:
+            x_data = None
+        point_key = f'point-{point:d}'
+        y_data_list = []
+        for keychain in self.y_axis_keychain_list:
+            point_keychain = f'{keychain}/{point_key}'
+            y_data = self.dataset_from_keychain(data_dict, point_keychain)
+            y_data_list.append(y_data)
+        return x_data, y_data_list
+
+
 class DataModelDict:
     def __init__(self, daily_path, run_name, reset_hard=False):
         self.daily_path = daily_path
@@ -160,67 +224,3 @@ class DataModelDict:
 
     def keys(self):
         return self.data_dict.keys()
-
-
-def shot_to_loop_and_point(shot, num_points=1, shot_index_convention=0,
-                           loop_index_convention=0, point_index_convention=0):
-    """
-    Convert shot number to loop and point using the number of points. Default assumption is indexing for
-    shot, loop, and point all starts from zero with options for other conventions.
-    """
-    shot_ind = shot - shot_index_convention
-    loop_ind = shot_ind // num_points
-    point_ind = shot_ind % num_points
-    loop = loop_ind + loop_index_convention
-    point = point_ind + point_index_convention
-    return loop, point
-
-
-def get_shot_list_from_point(point, num_points, num_shots, start_shot=0, stop_shot=None):
-    # TODO: Implement different conventions for shot and point start indices
-    shots = np.arange(point, num_shots, num_points)
-    start_mask = start_shot <= shots
-    shots = shots[start_mask]
-    if stop_shot is not None:
-        stop_mask = shots <= stop_shot
-        shots = shots[stop_mask]
-    num_loops = len(shots)
-    return shots, num_loops
-
-
-class Reporter:
-    def __init__(self, x_axis_keychain, y_axis_keychains, reporter_name, x_label, y_label):
-        self.x_axis_keychain = x_axis_keychain
-        if not isinstance(y_axis_keychains, (list, tuple)):
-            y_axis_keychains = [y_axis_keychains]
-        self.y_axis_keychain_list = y_axis_keychains
-        self.reporter_name = reporter_name
-        self.x_label = x_label
-        self.y_label = y_label
-
-    def report_run(self, data_dict):
-        num_points = data_dict['num_points']
-        for point in range(num_points):
-            x_data, y_data_list = self.get_xy_data(data_dict, point)
-            self.report(x_data, y_data_list)
-
-    def report(self, x_data, y_data):
-        raise NotImplementedError
-
-    @staticmethod
-    def dataset_from_keychain(data_dict, keychain):
-        data = reduce(lambda x, y: x[y], keychain.split('/'), data_dict)
-        return data
-
-    def get_xy_data(self, data_dict, point):
-        if self.x_axis_keychain is not None:
-            x_data = self.dataset_from_keychain(data_dict, self.x_axis_keychain)
-        else:
-            x_data = None
-        point_key = f'point-{point:d}'
-        y_data_list = []
-        for keychain in self.y_axis_keychain_list:
-            point_keychain = f'{keychain}/{point_key}'
-            y_data = self.dataset_from_keychain(data_dict, point_keychain)
-            y_data_list.append(y_data)
-        return x_data, y_data_list
