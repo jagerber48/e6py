@@ -3,6 +3,7 @@ from pathlib import Path
 import h5py
 import matplotlib.pyplot as plt
 from . import datatools
+from .datamodel import Analyzer
 from .datatools import AnalysisDict, shot_to_loop_and_point
 from .absorptionanalysis import AbsorptionAnalyzer
 from .camerasettings import SideImagingSystem
@@ -348,3 +349,17 @@ def threshold_discrimination_analysis(analysis_dict, threshold):
         td_dict['num_below'][point_key] = num_below
         td_dict['fraction_below'][point_key] = fraction_below
     analysis_dict.save_dict()
+
+
+class CountsAnalyzer(Analyzer):
+    def __init__(self, analyzer_dict, datastream, frame_name, roi_slice, analyzer_name='counts_analyzer'):
+        super(CountsAnalyzer, self).__init__(analyzer_dict, datastream, analyzer_name)
+        self.frame_name = frame_name
+        self.roi_slice = roi_slice
+
+    def analyze_shot(self, shot_num=0):
+        file_path = self.datastream.get_file_path(shot_num)
+        frame = get_image(file_path, self.frame_name, roi_slice=self.roi_slice)
+        counts = np.nansum(frame)
+        return counts
+
