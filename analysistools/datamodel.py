@@ -128,7 +128,7 @@ class RawDataStream:
         return self.num_shots
 
 
-class AnalyzerRaw:
+class RawShotAnalyzer:
     """
     AnalyzerRaw objects process all shots within a datastream one at a time and sort shot-by-shot results
     by point.
@@ -159,14 +159,10 @@ class AnalyzerRaw:
                 point_key = f'point-{point:d}'
                 self.analyzer_dict[field][point_key] = []
 
-    def analyze_shot(self, shot_num=0):
-        raise NotImplementedError
-
-    def analyze_run(self, data_dict):
+    def analyze_run(self, data_dict, datastream):
         self.setup_analyzer_dict()
         num_points = data_dict['num_points']
         num_shots = data_dict['num_shots']
-        data_dict[self.analyzer_name] = self.analyzer_dict
 
         result_lists_dict = dict()
         for field in self.output_field_list:
@@ -175,9 +171,15 @@ class AnalyzerRaw:
         for shot_num in range(num_shots):
             loop, point = shot_to_loop_and_point(shot_num, num_points)
             point_key = f'point-{point:d}'
-            results_dict = self.analyze_shot(shot_num)
+            results_dict = self.analyze_shot(shot_num, datastream)
             for key, value in results_dict.items():
                 self.analyzer_dict[key][point_key].append(value)
+
+        data_dict[self.analyzer_name] = self.analyzer_dict
+
+    def analyze_shot(self, datastream, shot_num=0):
+        raise NotImplementedError
+
 
 
 class Aggregator:
