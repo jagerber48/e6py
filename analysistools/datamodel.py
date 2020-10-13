@@ -43,12 +43,13 @@ def to_list(var):
 
 class DataModel:
     def __init__(self, daily_path, run_name, num_points=1, datastream_list=None, analyzer_list=None,
-                 reporter_list=None, reset_hard=False):
+                 aggregator_list=None, reporter_list=None, reset_hard=False):
         self.daily_path = daily_path
         self.run_name = run_name
         self.num_points = num_points
         self.datastream_list = to_list(datastream_list)
         self.analyzer_list = to_list(analyzer_list)
+        self.aggregator_list = aggregator_list
         self.reporter_list = to_list(reporter_list)
 
         self.datastream_dict = dict()
@@ -83,6 +84,9 @@ class DataModel:
         for analyzer in self.analyzer_list:
             datastream = self.datastream_dict[analyzer.datastream_name]
             analyzer.analyze_run(self.data_dict, datastream)
+        for aggregator in self.aggregator_list:
+            datastream = self.datastream_dict[aggregator.datastream_name]
+            aggregator.aggregate_run(self.data_dict, datastream)
         self.data_dict.save_dict()
 
     def run_reporters(self):
@@ -165,10 +169,6 @@ class RawShotAnalyzer:
         self.setup_analyzer_dict(num_points)
         num_shots = data_dict['num_shots']
 
-        result_lists_dict = dict()
-        for field in self.output_field_list:
-            result_lists_dict[field] = []
-
         for shot_num in range(num_shots):
             loop, point = shot_to_loop_and_point(shot_num, num_points)
             point_key = f'point-{point:d}'
@@ -182,9 +182,50 @@ class RawShotAnalyzer:
         raise NotImplementedError
 
 
-class Aggregator:
-    def __init__(self, analyzer_name, aggregator_name, output_field_list):
-        pass
+class RawAggregator:
+    def __init__(self, output_field_list, aggregator_name, datastream_name):
+        self.output_field_list = to_list(output_field_list)
+        self.aggregator_name = aggregator_name
+        self.datastream_name = datastream_name
+        self.aggregator_type = None
+
+        self.input_param_dict = None
+        self.aggregator_dict = None
+
+    def setup_input_param_dict(self):
+        self.input_param_dict = dict()
+        self.input_param_dict['output_field_list'] = self.output_field_list
+        self.input_param_dict['analyzer_name'] = self.aggregator_name
+        self.input_param_dict['datastream_name'] = self.datastream_name
+        self.input_param_dict['aggregator_type'] = self.aggregator_type
+
+    def setup_aggregator_dict(self, num_points=1):
+        self.aggregator_dict = dict()
+        self.setup_input_param_dict()
+        self.aggregator_dict['input_params'] = self.input_param_dict
+        for field in self.output_field_list:
+            self.aggregator_dict[field] = dict()
+            for point in range(num_points):
+                point_key = f'point-{point:d}'
+                self.aggregator_dict[field][point_key] = None
+
+    def aggregate_run(self, data_dict, datastream):
+        num_points = data_dict['num_points']
+        self.setup_aggregator_dict(num_points)
+        num_shots = data_dict['num_shots']
+
+        for point in range(num_points):
+            point_key = f'point-{point:d}'
+            shot_list = data_dict['shot_list'][point_key]
+            results_dict = self.aggregate_point(datastream, shot_list)
+            for key, value in results_dict.items():
+                self.aggregator_dict[key][point_key] = value
+
+        data_dict[self.aggregator_name] = self.aggregator_dict
+
+    def aggregate_point(self, datastream, shot_list):
+        raise NotImplementedError
+
 
 
 class Reporter:
