@@ -128,7 +128,11 @@ class RawDataStream:
         return self.num_shots
 
 
-class Analyzer:
+class AnalyzerRaw:
+    """
+    AnalyzerRaw objects process all shots within a datastream one at a time and sort shot-by-shot results
+    by point.
+    """
     def __init__(self, output_field_list, analyzer_name, datastream_name):
         if not isinstance(output_field_list, (list, tuple)):
             output_field_list = [output_field_list]
@@ -136,23 +140,33 @@ class Analyzer:
         self.analyzer_name = analyzer_name
         self.datastream_name = datastream_name
 
+        self.input_param_dict = dict()
+        self.setup_input_param_dict()
+
+        self.analyzer_dict = None
+
+    def setup_input_param_dict(self):
+        self.input_param_dict['output_field_list'] = self.output_field_list
+        self.input_param_dict['analyzer_name'] = self.analyzer_name
+        self.input_param_dict['datastream_name'] = self.datastream_name
+
     def setup_analyzer_dict(self, num_points=1):
-        analyzer_dict = dict()
+        self.analyzer_dict = dict()
+        self.analyzer_dict['input_params'] = self.input_param_dict
         for field in self.output_field_list:
-            analyzer_dict[field] = dict()
+            self.analyzer_dict[field] = dict()
             for point in range(num_points):
                 point_key = f'point-{point:d}'
-                analyzer_dict[field][point_key] = []
-        return analyzer_dict
+                self.analyzer_dict[field][point_key] = []
 
     def analyze_shot(self, shot_num=0):
         raise NotImplementedError
 
     def analyze_run(self, data_dict):
+        self.setup_analyzer_dict()
         num_points = data_dict['num_points']
         num_shots = data_dict['num_shots']
-        analyzer_dict = self.setup_analyzer_dict(num_points)
-        data_dict[self.analyzer_name] = analyzer_dict
+        data_dict[self.analyzer_name] = self.analyzer_dict
 
         result_lists_dict = dict()
         for field in self.output_field_list:
@@ -163,7 +177,7 @@ class Analyzer:
             point_key = f'point-{point:d}'
             results_dict = self.analyze_shot(shot_num)
             for key, value in results_dict.items():
-                analyzer_dict[key][point_key].append(value)
+                self.analyzer_dict[key][point_key].append(value)
 
 
 class Aggregator:
