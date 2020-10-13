@@ -17,16 +17,42 @@ def get_shot_list_from_point(point, num_points, num_shots, start_shot=0, stop_sh
     return shots, num_loops
 
 
+def shot_to_loop_and_point(shot, num_points=1, shot_index_convention=0,
+                           loop_index_convention=0, point_index_convention=0):
+    """
+    Convert shot number to loop and point using the number of points. Default assumption is indexing for
+    shot, loop, and point all starts from zero with options for other conventions.
+    """
+    shot_ind = shot - shot_index_convention
+    loop_ind = shot_ind // num_points
+    point_ind = shot_ind % num_points
+    loop = loop_ind + loop_index_convention
+    point = point_ind + point_index_convention
+    return loop, point
+
+
+def to_list(var):
+    """
+    Helper function to convert singleton input parameters into list-expecting parameters into singleton lists.
+    """
+    if isinstance(var, (list, tuple)):
+        return var
+    else:
+        return [var]
+
+
 class DataModel:
     def __init__(self, daily_path, run_name, num_points=1, datastream_list=None, analyzer_list=None,
                  reporter_list=None, reset_hard=False):
         self.daily_path = daily_path
         self.run_name = run_name
         self.num_points = num_points
-        self.analyzer_list = analyzer_list
-        self.reporter_list = reporter_list
+        self.datastream_list = to_list(datastream_list)
+        self.analyzer_list = to_list(analyzer_list)
+        self.reporter_list = to_list(reporter_list)
 
         self.datastream_dict = dict()
+        self.initialize_datastreams()
 
         for datastream in datastream_list:
             datastream.set_run(self.daily_path, self.run_name)
@@ -41,6 +67,18 @@ class DataModel:
         self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
         self.set_shot_lists()
 
+    def initialize_datastreams(self):
+        for datastream in self.datastream_list:
+            datastream.set_run(self.daily_path, self.run_name)
+            self.datastream_dict[datastream.datastream_name] = datastream
+
+    def set_num_shots(self):
+        self.num_shots = self.datastream_list[0].num_shots
+        if not all([datastream.num_shots == self.num_shots for datastream in self.datastream_list]):
+            print('Warning, data streams' +
+                  ', '.join([datastream.datastream_name for datastream in self.datastream_list]) +
+                  f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
+
     def run_analyzers(self):
         for analyzer in self.analyzer_list:
             analyzer.analyze_run(self.data_dict)
@@ -48,7 +86,7 @@ class DataModel:
 
     def run_reporters(self):
         for reporter in self.reporter_list:
-            reporter.report_run(self.data_dict)
+            reporter.report_run(self.data_dict, run_name=self.run_name)
 
     def set_shot_lists(self):
         self.data_dict['num_points'] = self.num_points
@@ -91,12 +129,12 @@ class RawDataStream:
 
 
 class Analyzer:
-    def __init__(self, output_field_list, analyzer_name, datastream):
+    def __init__(self, output_field_list, analyzer_name, datastream_name):
         if not isinstance(output_field_list, (list, tuple)):
             output_field_list = [output_field_list]
         self.output_field_list = output_field_list
         self.analyzer_name = analyzer_name
-        self.datastream = datastream
+        self.datastream_name = datastream_name
 
     def setup_analyzer_dict(self, num_points=1):
         analyzer_dict = dict()
@@ -128,18 +166,9 @@ class Analyzer:
                 analyzer_dict[key][point_key].append(value)
 
 
-def shot_to_loop_and_point(shot, num_points=1, shot_index_convention=0,
-                           loop_index_convention=0, point_index_convention=0):
-    """
-    Convert shot number to loop and point using the number of points. Default assumption is indexing for
-    shot, loop, and point all starts from zero with options for other conventions.
-    """
-    shot_ind = shot - shot_index_convention
-    loop_ind = shot_ind // num_points
-    point_ind = shot_ind % num_points
-    loop = loop_ind + loop_index_convention
-    point = point_ind + point_index_convention
-    return loop, point
+class Aggregator:
+    def __init__(self, analyzer_name, aggregator_name, output_field_list):
+        pass
 
 
 class Reporter:
@@ -152,13 +181,17 @@ class Reporter:
         self.x_label = x_label
         self.y_label = y_label
 
-    def report_run(self, data_dict):
+    def report_run(self, data_dict, run_name=None):
+        figure_title = self.reporter_name
+        if run_name is not None:
+            figure_title += f' - {run_name}'
         num_points = data_dict['num_points']
         for point in range(num_points):
+            point_figure_title = f'{figure_title} - point {point:d}'
             x_data, y_data_list = self.get_xy_data(data_dict, point)
-            self.report(x_data, y_data_list)
+            self.report(x_data, y_data_list, point_figure_title)
 
-    def report(self, x_data, y_data):
+    def report(self, x_data, y_data, point_figure_title):
         raise NotImplementedError
 
     @staticmethod
