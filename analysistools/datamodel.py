@@ -81,7 +81,8 @@ class DataModel:
 
     def run_analyzers(self):
         for analyzer in self.analyzer_list:
-            analyzer.analyze_run(self.data_dict)
+            datastream = self.datastream_dict[analyzer.datastream_name]
+            analyzer.analyze_run(self.data_dict, datastream)
         self.data_dict.save_dict()
 
     def run_reporters(self):
@@ -134,24 +135,23 @@ class RawShotAnalyzer:
     by point.
     """
     def __init__(self, output_field_list, analyzer_name, datastream_name):
-        if not isinstance(output_field_list, (list, tuple)):
-            output_field_list = [output_field_list]
-        self.output_field_list = output_field_list
+        self.output_field_list = to_list(output_field_list)
         self.analyzer_name = analyzer_name
         self.datastream_name = datastream_name
+        self.analyzer_type = None
 
-        self.input_param_dict = dict()
-        self.setup_input_param_dict()
-
+        self.input_param_dict = None
         self.analyzer_dict = None
 
     def setup_input_param_dict(self):
         self.input_param_dict['output_field_list'] = self.output_field_list
         self.input_param_dict['analyzer_name'] = self.analyzer_name
         self.input_param_dict['datastream_name'] = self.datastream_name
+        self.input_param_dict['analyzer_type'] = self.analyzer_type
 
     def setup_analyzer_dict(self, num_points=1):
         self.analyzer_dict = dict()
+        self.setup_input_param_dict()
         self.analyzer_dict['input_params'] = self.input_param_dict
         for field in self.output_field_list:
             self.analyzer_dict[field] = dict()
@@ -160,8 +160,8 @@ class RawShotAnalyzer:
                 self.analyzer_dict[field][point_key] = []
 
     def analyze_run(self, data_dict, datastream):
-        self.setup_analyzer_dict()
         num_points = data_dict['num_points']
+        self.setup_analyzer_dict(num_points)
         num_shots = data_dict['num_shots']
 
         result_lists_dict = dict()
@@ -171,7 +171,7 @@ class RawShotAnalyzer:
         for shot_num in range(num_shots):
             loop, point = shot_to_loop_and_point(shot_num, num_points)
             point_key = f'point-{point:d}'
-            results_dict = self.analyze_shot(shot_num, datastream)
+            results_dict = self.analyze_shot(datastream, shot_num)
             for key, value in results_dict.items():
                 self.analyzer_dict[key][point_key].append(value)
 
@@ -179,7 +179,6 @@ class RawShotAnalyzer:
 
     def analyze_shot(self, datastream, shot_num=0):
         raise NotImplementedError
-
 
 
 class Aggregator:

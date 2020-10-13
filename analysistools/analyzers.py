@@ -8,12 +8,15 @@ class CountsAnalyzer(RawShotAnalyzer):
         super(CountsAnalyzer, self).__init__(output_field_list, analyzer_name, datastream_name)
         self.frame_name = frame_name
         self.roi_slice = roi_slice
+        self.analyzer_type = 'CountsAnalyzer'
+
         self.counts_output = self.output_field_list[0]
 
     def setup_input_param_dict(self):
         super(CountsAnalyzer, self).setup_input_param_dict()
         self.input_param_dict['frame_name'] = self.frame_name
         self.input_param_dict['roi_slice'] = self.roi_slice
+        self.input_param_dict['analyzer_type'] = self.analyzer_type
 
     def analyze_shot(self, datastream, shot_num=0):
         file_path = datastream.get_file_path(shot_num)
