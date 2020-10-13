@@ -144,6 +144,7 @@ class RawShotAnalyzer:
         self.analyzer_dict = None
 
     def setup_input_param_dict(self):
+        self.input_param_dict = dict()
         self.input_param_dict['output_field_list'] = self.output_field_list
         self.input_param_dict['analyzer_name'] = self.analyzer_name
         self.input_param_dict['datastream_name'] = self.datastream_name
@@ -272,3 +273,6 @@ class DataModelDict:
 
     def keys(self):
         return self.data_dict.keys()
+
+    def items(self):
+        return self.data_dict.items()
