@@ -4,13 +4,16 @@ from .imagetools import get_image
 
 
 class CountsAnalyzer(RawShotAnalyzer):
-    def __init__(self, output_field_list, frame_name, datastream_name, roi_slice, analyzer_name='counts_analyzer'):
-        super(CountsAnalyzer, self).__init__(output_field_list, analyzer_name, datastream_name)
+    output_field_list = ['counts']
+
+    def __init__(self, frame_name, datastream_name, roi_slice, analyzer_name='counts_analyzer'):
+        super(CountsAnalyzer, self).__init__(analyzer_name, datastream_name)
         self.frame_name = frame_name
         self.roi_slice = roi_slice
         self.analyzer_type = 'CountsAnalyzer'
 
         self.counts_output = self.output_field_list[0]
+
 
     def setup_input_param_dict(self):
         super(CountsAnalyzer, self).setup_input_param_dict()

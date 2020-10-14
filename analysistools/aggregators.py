@@ -4,12 +4,15 @@ from .imagetools import get_image
 
 
 class AvgImageAggregator(RawAggregator):
-    def __init__(self, output_field_list, frame_name, datastream_name, roi_slice,
+    def __init__(self, frame_name, datastream_name, roi_slice,
                  aggregator_name='avg_img_aggregator'):
-        super(AvgImageAggregator, self).__init__(output_field_list, aggregator_name, datastream_name)
+        super(AvgImageAggregator, self).__init__(aggregator_name, datastream_name)
         self.frame_name = frame_name
         self.roi_slice = roi_slice
         self.avg_img_output = self.output_field_list[0]
+
+    def set_output_field_list(self):
+        return ['avg_frame']
 
     def setup_analyzer_dict(self, num_points=1):
         analyzer_dict = super(AvgImageAggregator, self).setup_aggregator_dict(num_points=num_points)
@@ -31,12 +34,15 @@ class AvgImageAggregator(RawAggregator):
 
 
 class RandomImageAggregator(RawAggregator):
-    def __init__(self, output_field_list, frame_name, datastream_name, roi_slice,
+    def __init__(self, frame_name, datastream_name, roi_slice,
                  aggregator_name='avg_img_aggregator'):
-        super(RandomImageAggregator, self).__init__(output_field_list, aggregator_name, datastream_name)
+        super(RandomImageAggregator, self).__init__(aggregator_name, datastream_name)
         self.frame_name = frame_name
         self.roi_slice = roi_slice
         self.avg_img_output = self.output_field_list[0]
+
+    def set_output_field_list(self):
+        return ['random_frame']
 
     def setup_analyzer_dict(self, num_points=1):
         analyzer_dict = super(RandomImageAggregator, self).setup_aggregator_dict(num_points=num_points)

@@ -31,6 +31,11 @@ def shot_to_loop_and_point(shot, num_points=1, shot_index_convention=0,
     return loop, point
 
 
+def dataset_from_keychain(data_dict, keychain):
+    data = reduce(lambda x, y: x[y], keychain.split('/'), data_dict)
+    return data
+
+
 def to_list(var):
     """
     Helper function to convert singleton input parameters into list-expecting parameters into singleton lists.
@@ -80,10 +85,13 @@ class DataModel:
                   ', '.join([datastream.datastream_name for datastream in self.datastream_list]) +
                   f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
 
-    def run_analyzers(self):
+    def run_analysis(self):
+        self.data_dict['analyzers'] = dict()
         for analyzer in self.analyzer_list:
             datastream = self.datastream_dict[analyzer.datastream_name]
             analyzer.analyze_run(self.data_dict, datastream)
+
+        self.data_dict['aggregators'] = dict()
         for aggregator in self.aggregator_list:
             datastream = self.datastream_dict[aggregator.datastream_name]
             aggregator.aggregate_run(self.data_dict, datastream)
@@ -138,8 +146,11 @@ class RawShotAnalyzer:
     AnalyzerRaw objects process all shots within a datastream one at a time and sort shot-by-shot results
     by point.
     """
-    def __init__(self, output_field_list, analyzer_name, datastream_name):
-        self.output_field_list = to_list(output_field_list)
+    @property
+    def output_field_list(self):
+        raise NotImplementedError
+
+    def __init__(self, analyzer_name, datastream_name):
         self.analyzer_name = analyzer_name
         self.datastream_name = datastream_name
         self.analyzer_type = None
@@ -149,7 +160,6 @@ class RawShotAnalyzer:
 
     def setup_input_param_dict(self):
         self.input_param_dict = dict()
-        self.input_param_dict['output_field_list'] = self.output_field_list
         self.input_param_dict['analyzer_name'] = self.analyzer_name
         self.input_param_dict['datastream_name'] = self.datastream_name
         self.input_param_dict['analyzer_type'] = self.analyzer_type
@@ -176,25 +186,27 @@ class RawShotAnalyzer:
             for key, value in results_dict.items():
                 self.analyzer_dict[key][point_key].append(value)
 
-        data_dict[self.analyzer_name] = self.analyzer_dict
+        data_dict['analyzers'][self.analyzer_name] = self.analyzer_dict
 
     def analyze_shot(self, datastream, shot_num=0):
         raise NotImplementedError
 
 
 class RawAggregator:
-    def __init__(self, output_field_list, aggregator_name, datastream_name):
-        self.output_field_list = to_list(output_field_list)
+    def __init__(self, aggregator_name, datastream_name):
         self.aggregator_name = aggregator_name
         self.datastream_name = datastream_name
         self.aggregator_type = None
 
+        self.output_field_list = self.set_output_field_list()
         self.input_param_dict = None
         self.aggregator_dict = None
 
+    def set_output_field_list(self):
+        raise NotImplementedError
+
     def setup_input_param_dict(self):
         self.input_param_dict = dict()
-        self.input_param_dict['output_field_list'] = self.output_field_list
         self.input_param_dict['analyzer_name'] = self.aggregator_name
         self.input_param_dict['datastream_name'] = self.datastream_name
         self.input_param_dict['aggregator_type'] = self.aggregator_type
@@ -212,7 +224,6 @@ class RawAggregator:
     def aggregate_run(self, data_dict, datastream):
         num_points = data_dict['num_points']
         self.setup_aggregator_dict(num_points)
-        num_shots = data_dict['num_shots']
 
         for point in range(num_points):
             point_key = f'point-{point:d}'
@@ -221,11 +232,10 @@ class RawAggregator:
             for key, value in results_dict.items():
                 self.aggregator_dict[key][point_key] = value
 
-        data_dict[self.aggregator_name] = self.aggregator_dict
+        data_dict['aggregators'][self.aggregator_name] = self.aggregator_dict
 
     def aggregate_point(self, datastream, shot_list):
         raise NotImplementedError
-
 
 
 class Reporter:
@@ -251,21 +261,16 @@ class Reporter:
     def report(self, x_data, y_data, point_figure_title):
         raise NotImplementedError
 
-    @staticmethod
-    def dataset_from_keychain(data_dict, keychain):
-        data = reduce(lambda x, y: x[y], keychain.split('/'), data_dict)
-        return data
-
     def get_xy_data(self, data_dict, point):
         if self.x_axis_keychain is not None:
-            x_data = self.dataset_from_keychain(data_dict, self.x_axis_keychain)
+            x_data = dataset_from_keychain(data_dict, self.x_axis_keychain)
         else:
             x_data = None
         point_key = f'point-{point:d}'
         y_data_list = []
         for keychain in self.y_axis_keychain_list:
             point_keychain = f'{keychain}/{point_key}'
-            y_data = self.dataset_from_keychain(data_dict, point_keychain)
+            y_data = dataset_from_keychain(data_dict, point_keychain)
             y_data_list.append(y_data)
         return x_data, y_data_list
 
