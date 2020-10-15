@@ -1,10 +1,12 @@
 import numpy as np
+from enum import Enum
 from .datamodel import Analyzer
 from .imagetools import get_image
 
 
 class CountsAnalyzer(Analyzer):
-    output_key_list = ['counts']
+    class OutputKey(Enum):
+        COUNTS = 'counts'
     analyzer_type = 'CountsAnalyzer'
 
     def __init__(self, datastream_name, frame_name, roi_slice=None, analyzer_name='counts_analyzer'):
@@ -12,8 +14,6 @@ class CountsAnalyzer(Analyzer):
         self.datastream_name = datastream_name
         self.frame_name = frame_name
         self.roi_slice = roi_slice
-
-        self.counts_output = self.output_key_list[0]
 
     def setup_input_param_dict(self):
         super(CountsAnalyzer, self).setup_input_param_dict()
@@ -26,5 +26,5 @@ class CountsAnalyzer(Analyzer):
         file_path = datastream.get_file_path(shot_num)
         frame = get_image(file_path, self.frame_name, roi_slice=self.roi_slice)
         counts = np.nansum(frame)
-        results_dict = {self.counts_output: counts}
+        results_dict = {self.OutputKey.COUNTS.value: counts}
         return results_dict

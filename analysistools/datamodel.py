@@ -1,6 +1,7 @@
 from functools import reduce
 import numpy as np
 from pathlib import Path
+from enum import Enum
 import pickle
 import h5py
 
@@ -142,9 +143,8 @@ class RawDataStream:
 
 
 class Analyzer:
-    @property
-    def output_key_list(self):
-        raise NotImplementedError
+    class OutputKey(Enum):
+        pass
 
     @property
     def analyzer_type(self):
@@ -153,7 +153,7 @@ class Analyzer:
     def __init__(self, analyzer_name='analyzer'):
         self.analyzer_name = analyzer_name
 
-        self.input_param_dict = None
+        self.input_param_dict = dict()
         self.analyzer_dict = None
 
     def setup_input_param_dict(self):
@@ -162,33 +162,34 @@ class Analyzer:
         self.input_param_dict['analyzer_type'] = self.analyzer_type
 
     def setup_analyzer_dict(self):
-        self.analyzer_dict = dict()
+        analyzer_dict = dict()
         self.setup_input_param_dict()
-        self.analyzer_dict['input_params'] = self.input_param_dict
-        for key in self.output_key_list:
-            self.analyzer_dict[key] = dict()
+        analyzer_dict['input_params'] = self.input_param_dict
+        for enum in self.OutputKey:
+            key = enum.value
+            analyzer_dict[key] = dict()
+        return analyzer_dict
 
     def analyze_run(self, datamodel):
         data_dict = datamodel.data_dict
-        self.setup_analyzer_dict()
+        analyzer_dict = self.setup_analyzer_dict()
         num_shots = data_dict['num_shots']
 
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
             results_dict = self.analyze_shot(shot_num, datamodel)
             for key, value in results_dict.items():
-                self.analyzer_dict[key][shot_key] = value
+                analyzer_dict[key][shot_key] = value
 
-        data_dict['analyzers'][self.analyzer_name] = self.analyzer_dict
+        data_dict['analyzers'][self.analyzer_name] = analyzer_dict
 
     def analyze_shot(self, shot_num, datamodel):
         raise NotImplementedError
 
 
 class Aggregator:
-    @property
-    def output_key_list(self):
-        raise NotImplementedError
+    class OutputKey(Enum):
+        pass
 
     @property
     def aggregator_type(self):
@@ -206,15 +207,17 @@ class Aggregator:
         self.input_param_dict['aggregator_type'] = self.aggregator_type
 
     def setup_aggregator_dict(self):
-        self.aggregator_dict = dict()
+        aggregator_dict = dict()
         self.setup_input_param_dict()
-        self.aggregator_dict['input_params'] = self.input_param_dict
-        for key in self.output_key_list:
-            self.aggregator_dict[key] = dict()
+        aggregator_dict['input_params'] = self.input_param_dict
+        for enum in self.OutputKey:
+            key = enum.value
+            aggregator_dict[key] = dict()
+        return aggregator_dict
 
     def aggregate_run(self, datamodel):
         data_dict = datamodel.data_dict
-        self.setup_aggregator_dict()
+        aggregator_dict = self.setup_aggregator_dict()
         num_points = data_dict['num_points']
 
         for point in range(num_points):
@@ -222,9 +225,9 @@ class Aggregator:
             shot_list = data_dict['shot_list'][point_key]
             results_dict = self.aggregate_point(shot_list, datamodel)
             for key, value in results_dict.items():
-                self.aggregator_dict[key][point_key] = value
+                aggregator_dict[key][point_key] = value
 
-        data_dict['aggregators'][self.aggregator_name] = self.aggregator_dict
+        data_dict['aggregators'][self.aggregator_name] = aggregator_dict
 
     def aggregate_point(self, shot_list, datamodel):
         raise NotImplementedError
@@ -236,43 +239,6 @@ class Reporter:
 
     def report(self, datamodel):
         raise NotImplementedError
-
-#
-# class Reporter:
-#     def __init__(self, x_axis_keychain, y_axis_keychains, reporter_name, x_label, y_label):
-#         self.x_axis_keychain = x_axis_keychain
-#         if not isinstance(y_axis_keychains, (list, tuple)):
-#             y_axis_keychains = [y_axis_keychains]
-#         self.y_axis_keychain_list = y_axis_keychains
-#         self.reporter_name = reporter_name
-#         self.x_label = x_label
-#         self.y_label = y_label
-#
-#     def report_run(self, data_dict, run_name=None):
-#         figure_title = self.reporter_name
-#         if run_name is not None:
-#             figure_title += f' - {run_name}'
-#         num_points = data_dict['num_points']
-#         for point in range(num_points):
-#             point_figure_title = f'{figure_title} - point {point:d}'
-#             x_data, y_data_list = self.get_xy_data(data_dict, point)
-#             self.report(x_data, y_data_list, point_figure_title)
-#
-#     def report(self, x_data, y_data, point_figure_title):
-#         raise NotImplementedError
-#
-#     def get_xy_data(self, data_dict, point):
-#         if self.x_axis_keychain is not None:
-#             x_data = dataset_from_keychain(data_dict, self.x_axis_keychain)
-#         else:
-#             x_data = None
-#         point_key = f'point-{point:d}'
-#         y_data_list = []
-#         for keychain in self.y_axis_keychain_list:
-#             point_keychain = f'{keychain}/{point_key}'
-#             y_data = dataset_from_keychain(data_dict, point_keychain)
-#             y_data_list.append(y_data)
-#         return x_data, y_data_list
 
 
 class DataModelDict:
