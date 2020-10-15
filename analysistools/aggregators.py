@@ -1,7 +1,52 @@
 import numpy as np
 from enum import Enum
-from .datamodel import Aggregator
 from .imagetools import get_image
+
+
+class Aggregator:
+    class OutputKey(Enum):
+        pass
+
+    @property
+    def aggregator_type(self):
+        raise NotImplementedError
+
+    def __init__(self, aggregator_name='aggregator'):
+        self.aggregator_name = aggregator_name
+
+        self.input_param_dict = None
+        self.aggregator_dict = None
+
+    def setup_input_param_dict(self):
+        self.input_param_dict = dict()
+        self.input_param_dict['aggregator_name'] = self.aggregator_name
+        self.input_param_dict['aggregator_type'] = self.aggregator_type
+
+    def setup_aggregator_dict(self):
+        aggregator_dict = dict()
+        self.setup_input_param_dict()
+        aggregator_dict['input_params'] = self.input_param_dict
+        for enum in self.OutputKey:
+            key = enum.value
+            aggregator_dict[key] = dict()
+        return aggregator_dict
+
+    def aggregate_run(self, datamodel):
+        data_dict = datamodel.data_dict
+        aggregator_dict = self.setup_aggregator_dict()
+        num_points = data_dict['num_points']
+
+        for point in range(num_points):
+            point_key = f'point-{point:d}'
+            shot_list = data_dict['shot_list'][point_key]
+            results_dict = self.aggregate_point(point, datamodel)
+            for key, value in results_dict.items():
+                aggregator_dict[key][point_key] = value
+
+        data_dict['aggregators'][self.aggregator_name] = aggregator_dict
+
+    def aggregate_point(self, point, datamodel):
+        raise NotImplementedError
 
 
 class AvgAtomRefImageAggregator(Aggregator):
@@ -19,14 +64,19 @@ class AvgAtomRefImageAggregator(Aggregator):
 
     def setup_analyzer_dict(self):
         analyzer_dict = super(AvgAtomRefImageAggregator, self).setup_aggregator_dict()
+        analyzer_dict['datastream_name'] = self.datastream_name
         analyzer_dict['atom_frame_name'] = self.atom_frame_name
         analyzer_dict['ref_frame_name'] = self.ref_frame_name
         analyzer_dict['roi_slice'] = self.roi_slice
 
-    def aggregate_point(self, shot_list, datamodel):
+    def aggregate_point(self, point, datamodel):
+        data_dict = datamodel.data_dict
+        point_key = f'point-{point:d}'
         datastream = datamodel.datastream_dict[self.datastream_name]
         avg_atom_frame = None
         avg_ref_frame = None
+        shot_list = data_dict['shot_list'][point_key]
+        num_loops = data_dict['loop_nums'][point_key]
         for shot_num in shot_list:
             file_path = datastream.get_file_path(shot_num)
             atom_frame = get_image(file_path, self.atom_frame_name, roi_slice=self.roi_slice)
@@ -37,9 +87,11 @@ class AvgAtomRefImageAggregator(Aggregator):
             else:
                 avg_atom_frame += atom_frame
                 avg_ref_frame += ref_frame
+        avg_atom_frame = avg_atom_frame / num_loops
+        avg_ref_frame = avg_ref_frame / num_loops
         results_dict = dict()
         results_dict[self.OutputKey.AVERAGE_ATOM_IMG.value] = avg_atom_frame
-        results_dict[self.OutputKey.AVERAGE_REF_IMG.value] = avg_atom_frame
+        results_dict[self.OutputKey.AVERAGE_REF_IMG.value] = avg_ref_frame
         return results_dict
 
 
@@ -64,11 +116,12 @@ class RandomAtomRefImageAggregator(Aggregator):
         analyzer_dict['ref_frame_name'] = self.ref_frame_name
         analyzer_dict['roi_slice'] = self.roi_slice
 
-    def aggregate_point(self, shot_list, datamodel):
+    def aggregate_point(self, point, datamodel):
         datastream = datamodel.datastream_dict[self.datastream_name]
-        random_shot = np.random.choice(shot_list)
         random_atom_frame = None
         random_ref_frame = None
+        shot_list = datamodel.data_dict['shot_list'][f'point-{point:d}']
+        random_shot = np.random.choice(shot_list)
         for shot_num in shot_list:
             if shot_num == random_shot:
                 file_path = datastream.get_file_path(shot_num)

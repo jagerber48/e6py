@@ -1,6 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from .datamodel import Reporter, dataset_from_keychain
+from .datamodel import dataset_from_keychain
+
+
+class Reporter:
+    def __init__(self, reporter_name):
+        self.reporter_name = reporter_name
+
+    def report(self, datamodel):
+        raise NotImplementedError
 
 
 class CountsReporter(Reporter):
@@ -17,7 +25,7 @@ class CountsReporter(Reporter):
 
         for point in range(num_points):
             point_key = f'point-{point:d}'
-            fig = plt.figure(figsize=(8, 8))
+            fig = plt.figure(figsize=(12, 12))
 
             ax_loop = fig.add_subplot(2, 1, 1)
             ax_loop.set_xlabel('Loop Number')
@@ -35,40 +43,70 @@ class CountsReporter(Reporter):
             fig.suptitle(figure_title, fontsize=16)
             fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
+        plt.show()
+
+
 
 class AvgRndmImgReporter(Reporter):
-    def __init__(self, atom_rndm_keychain, atom_avg_keychain, ref_rndm_keychain, ref_avg_keychain,
+    def __init__(self, avg_aggregator_name, rndm_aggregator_name,
                  reporter_name='avg_rndm_img_reporter'):
         super(AvgRndmImgReporter, self).__init__(reporter_name)
-        self.atom_rndm_keychain = atom_rndm_keychain
-        self.atom_avg_keychain = atom_avg_keychain
-        self.ref_rndm_keychain = ref_rndm_keychain
-        self.ref_avg_keychain = ref_avg_keychain
+        self.avg_aggregator_name = avg_aggregator_name
+        self.rndm_aggregator_name = rndm_aggregator_name
 
     def report(self, datamodel):
         data_dict = datamodel.data_dict
         run_name = data_dict['run_name']
         num_points = data_dict['num_points']
 
-        atom_rndm_img = dataset_from_keychain(datamodel, self.atom_rndm_keychain)
-        atom_avg_img = dataset_from_keychain(datamodel, self.atom_avg_keychain)
-        ref_rndm_img = dataset_from_keychain(datamodel, self.ref_rndm_keychain)
-        ref_avg_img = dataset_from_keychain(datamodel, self.ref_avg_keychain)
-        img_list = [atom_rndm_img, atom_avg_img, ref_rndm_img, ref_avg_img]
-
-        min_list = [np.nanmin(img) for img in img_list]
-        min_val = np.nanmin(min_list)
-        max_list = [np.nanmax(img) for img in img_list]
-        max_val = np.nanmax(max_list)
-
         cmap = 'binary_r'
 
         for point in range(num_points):
             point_key = f'point-{point:d}'
-            fig = plt.figure(figsize=(8, 8))
+            num_loops = data_dict['loop_nums'][point_key]
+
+            atom_rndm_img = dataset_from_keychain(datamodel, f'aggregators/{self.rndm_aggregator_name}/random_atom_img/{point_key}')
+            ref_rndm_img = dataset_from_keychain(datamodel, f'aggregators/{self.rndm_aggregator_name}/random_ref_img/{point_key}')
+            atom_avg_img = dataset_from_keychain(datamodel, f'aggregators/{self.avg_aggregator_name}/avg_atom_img/{point_key}')
+            ref_avg_img = dataset_from_keychain(datamodel, f'aggregators/{self.avg_aggregator_name}/avg_ref_img/{point_key}')
+
+            single_min_list = [np.nanmin(img) for img in [atom_rndm_img, ref_rndm_img]]
+            single_min_val = np.nanmin(single_min_list)
+            single_max_list = [np.nanmax(img) for img in [atom_rndm_img, ref_rndm_img]]
+            single_max_val = np.nanmax(single_max_list)
+
+            avg_min_list = [np.nanmin(img) for img in [atom_avg_img, ref_avg_img]]
+            avg_min_val = np.nanmin(avg_min_list)
+            avg_max_list = [np.nanmax(img) for img in [atom_avg_img, ref_avg_img]]
+            avg_max_val = np.nanmax(avg_max_list)
+
+            random_shot_num = dataset_from_keychain(datamodel, f'aggregators/{self.rndm_aggregator_name}/random_shot_num/{point_key}')
+
+            fig = plt.figure(figsize=(12, 12))
 
             ax_atom_rndm = fig.add_subplot(2, 2, 1)
-            im = ax_atom_rndm.imshow(atom_rndm_img, vmin=min_val, vmax=max_val, cmap=cmap)
+            im = ax_atom_rndm.imshow(atom_rndm_img, vmin=single_min_val, vmax=single_max_val, cmap=cmap)
             fig.colorbar(im, ax=ax_atom_rndm)
-            ax_atom_rndm.set_title(f'{run_name}:  Single Atom Shot - Point {point} - Shot #{shot_num}')
+            ax_atom_rndm.set_title(f'{run_name}:  Single Atom Frame - Point {point} - Shot #{random_shot_num}')
+
+            ax_ref_rndm = fig.add_subplot(2, 2, 2)
+            im = ax_ref_rndm.imshow(ref_rndm_img, vmin=single_min_val, vmax=single_max_val, cmap=cmap)
+            fig.colorbar(im, ax=ax_ref_rndm)
+            ax_ref_rndm.set_title(f'{run_name}:  Single Reference Frame - Point {point} - Shot #{random_shot_num}')
+
+            ax_atom_avg = fig.add_subplot(2, 2, 3)
+            im = ax_atom_avg.imshow(atom_avg_img, vmin=avg_min_val, vmax=avg_max_val, cmap=cmap)
+            fig.colorbar(im, ax=ax_atom_avg)
+            ax_atom_avg.set_title(f'{run_name}:  Average Atom Frame - Point {point} - {num_loops} Loops')
+
+            ax_ref_avg = fig.add_subplot(2, 2, 4)
+            im = ax_ref_avg.imshow(ref_avg_img, vmin=avg_min_val, vmax=avg_max_val, cmap=cmap)
+            fig.colorbar(im, ax=ax_ref_avg)
+            ax_ref_avg.set_title(f'{run_name}:  Average Reference Frame - Point {point} - {num_loops} Loops')
+
+            figure_title = f'{self.reporter_name} - {run_name} - {point_key}'
+            fig.suptitle(figure_title, fontsize=16)
+            fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+        plt.show()
 

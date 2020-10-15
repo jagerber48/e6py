@@ -1,7 +1,6 @@
 from functools import reduce
 import numpy as np
 from pathlib import Path
-from enum import Enum
 import pickle
 import h5py
 
@@ -140,105 +139,6 @@ class RawDataStream:
         file_list = list(self.data_path.glob('*.h5'))
         self.num_shots = len(file_list)
         return self.num_shots
-
-
-class Analyzer:
-    class OutputKey(Enum):
-        pass
-
-    @property
-    def analyzer_type(self):
-        raise NotImplementedError
-
-    def __init__(self, analyzer_name='analyzer'):
-        self.analyzer_name = analyzer_name
-
-        self.input_param_dict = dict()
-        self.analyzer_dict = None
-
-    def setup_input_param_dict(self):
-        self.input_param_dict = dict()
-        self.input_param_dict['analyzer_name'] = self.analyzer_name
-        self.input_param_dict['analyzer_type'] = self.analyzer_type
-
-    def setup_analyzer_dict(self):
-        analyzer_dict = dict()
-        self.setup_input_param_dict()
-        analyzer_dict['input_params'] = self.input_param_dict
-        for enum in self.OutputKey:
-            key = enum.value
-            analyzer_dict[key] = dict()
-        return analyzer_dict
-
-    def analyze_run(self, datamodel):
-        data_dict = datamodel.data_dict
-        analyzer_dict = self.setup_analyzer_dict()
-        num_shots = data_dict['num_shots']
-
-        for shot_num in range(num_shots):
-            shot_key = f'shot-{shot_num:d}'
-            results_dict = self.analyze_shot(shot_num, datamodel)
-            for key, value in results_dict.items():
-                analyzer_dict[key][shot_key] = value
-
-        data_dict['analyzers'][self.analyzer_name] = analyzer_dict
-
-    def analyze_shot(self, shot_num, datamodel):
-        raise NotImplementedError
-
-
-class Aggregator:
-    class OutputKey(Enum):
-        pass
-
-    @property
-    def aggregator_type(self):
-        raise NotImplementedError
-
-    def __init__(self, aggregator_name='aggregator'):
-        self.aggregator_name = aggregator_name
-
-        self.input_param_dict = None
-        self.aggregator_dict = None
-
-    def setup_input_param_dict(self):
-        self.input_param_dict = dict()
-        self.input_param_dict['aggregator_name'] = self.aggregator_name
-        self.input_param_dict['aggregator_type'] = self.aggregator_type
-
-    def setup_aggregator_dict(self):
-        aggregator_dict = dict()
-        self.setup_input_param_dict()
-        aggregator_dict['input_params'] = self.input_param_dict
-        for enum in self.OutputKey:
-            key = enum.value
-            aggregator_dict[key] = dict()
-        return aggregator_dict
-
-    def aggregate_run(self, datamodel):
-        data_dict = datamodel.data_dict
-        aggregator_dict = self.setup_aggregator_dict()
-        num_points = data_dict['num_points']
-
-        for point in range(num_points):
-            point_key = f'point-{point:d}'
-            shot_list = data_dict['shot_list'][point_key]
-            results_dict = self.aggregate_point(shot_list, datamodel)
-            for key, value in results_dict.items():
-                aggregator_dict[key][point_key] = value
-
-        data_dict['aggregators'][self.aggregator_name] = aggregator_dict
-
-    def aggregate_point(self, shot_list, datamodel):
-        raise NotImplementedError
-
-
-class Reporter:
-    def __init__(self, reporter_name):
-        self.reporter_name = reporter_name
-
-    def report(self, datamodel):
-        raise NotImplementedError
 
 
 class DataModelDict:
