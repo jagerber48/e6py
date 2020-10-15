@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path
 from .datamodel import dataset_from_keychain
 
 
@@ -11,20 +12,27 @@ class Reporter:
         raise NotImplementedError
 
 
-class CountsReporter(Reporter):
-    def __init__(self, y_axis_keychains, reporter_name='counts_reporter'):
-        super(CountsReporter, self).__init__(reporter_name)
-        self.y_axis_keychains = y_axis_keychains
+class AtomRefCountsReporter(Reporter):
+    def __init__(self, atom_counts_analyzer_name, ref_counts_analyzer_name, reporter_name='counts_reporter'):
+        super(AtomRefCountsReporter, self).__init__(reporter_name)
+        self.atom_counts_analyzer_name = atom_counts_analyzer_name
+        self.ref_counts_analyzer_name = ref_counts_analyzer_name
 
     def report(self, datamodel):
         data_dict = datamodel.data_dict
         run_name = data_dict['run_name']
         num_points = data_dict['num_points']
 
-        y_data_list = [list(dataset_from_keychain(datamodel, keychain).values()) for keychain in self.y_axis_keychains]
-
         for point in range(num_points):
             point_key = f'point-{point:d}'
+            shot_list = data_dict['shot_list'][point_key]
+            atom_data = []
+            ref_data = []
+            for shot in shot_list:
+                atom_counts = data_dict['analyzers'][self.atom_counts_analyzer_name]['counts'][f'shot-{shot}']
+                ref_counts = data_dict['analyzers'][self.ref_counts_analyzer_name]['counts'][f'shot-{shot}']
+                atom_data.append(atom_counts)
+                ref_data.append(ref_counts)
             fig = plt.figure(figsize=(12, 12))
 
             ax_loop = fig.add_subplot(2, 1, 1)
@@ -35,13 +43,18 @@ class CountsReporter(Reporter):
             ax_hist.set_xlabel('Counts')
             ax_hist.set_ylabel('Frequency')
 
-            for y_data in y_data_list:
+            for y_data in [atom_data, ref_data]:
                 ax_loop.plot(y_data, '.', markersize=10)
                 ax_hist.hist(y_data, alpha=0.5)
 
             figure_title = f'{self.reporter_name} - {run_name} - {point_key}'
             fig.suptitle(figure_title, fontsize=16)
             fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+            daily_path = data_dict['daily_path']
+            save_path = Path(daily_path, 'analysis', run_name)
+            save_file_path = Path(save_path, f'{figure_title}.png')
+            fig.savefig(save_file_path)
 
         plt.show()
 
@@ -107,6 +120,11 @@ class AvgRndmImgReporter(Reporter):
             figure_title = f'{self.reporter_name} - {run_name} - {point_key}'
             fig.suptitle(figure_title, fontsize=16)
             fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+            daily_path = data_dict['daily_path']
+            save_path = Path(daily_path, 'analysis', run_name)
+            save_file_path = Path(save_path, f'{figure_title}.png')
+            fig.savefig(save_file_path)
 
         plt.show()
 
