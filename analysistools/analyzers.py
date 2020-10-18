@@ -1,4 +1,8 @@
+import h5py
 import numpy as np
+import xarray as xr
+import specarray as sa
+from scipy.signal import butter, filtfilt
 from scipy.constants import hbar
 from enum import Enum
 from .imagetools import get_image
@@ -37,6 +41,7 @@ class Analyzer:
         analyzer_dict = self.setup_analyzer_dict()
         num_shots = data_dict['num_shots']
 
+        num_shots=5
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
             results_dict = self.analyze_shot(shot_num, datamodel)
@@ -222,3 +227,74 @@ class AbsorptionAnalyzer(Analyzer):
         column_area = self.pixel_area / self.magnification  # size of a pixel in the object plane
         column_number = column_density * column_area
         return column_number
+
+
+class HetDemodulateAnalyzer(Analyzer):
+    class OutputKey(Enum):
+        I_HET = 'I_het'
+        Q_HET = 'Q_het'
+        A_HET = 'A_het'
+        PHI_HET = 'Phi_het'
+
+    analyzer_type = 'HetDemodulateAnalyzer'
+
+    def __init__(self, datastream_name, channel_name, segment_name, sample_period, carrier_frequency,
+                 bandwidth, downsample_rate=1, analyzer_name='het_demod_analyzer'):
+        super(HetDemodulateAnalyzer, self).__init__(analyzer_name)
+        self.datastream_name = datastream_name
+        self.channel_name = channel_name
+        self.segment_name = segment_name
+        self.sample_period = sample_period
+        self.carrier_frequency = carrier_frequency
+        self.bandwidth = bandwidth
+        self.downsample_rate = downsample_rate
+
+    def setup_input_param_dict(self):
+        super(HetDemodulateAnalyzer, self).setup_input_param_dict()
+        self.input_param_dict['datastream_name'] = self.datastream_name
+        self.input_param_dict['channel_name'] = self.channel_name
+        self.input_param_dict['segment_name'] = self.segment_name
+
+    def analyze_shot(self, shot_num, datamodel):
+        datastream = datamodel.datastream_dict[self.datastream_name]
+        file_path = datastream.get_file_path(shot_num)
+        raw_het = h5py.File(file_path, 'r')[self.channel_name][self.segment_name]#[:].astype(float)
+
+        num_samples = len(raw_het)
+        dt = self.sample_period
+        t_coord = np.arange(0, num_samples) * dt
+
+        raw_het_xr = xr.DataArray(raw_het, coords={'time': t_coord}, dims=['time'])
+        I_het, Q_het, A_het, phi_het = self.demodulate(raw_het_xr, self.downsample_rate)
+
+        results_dict = dict()
+        results_dict[self.OutputKey.I_HET.value] = I_het.data
+        results_dict[self.OutputKey.Q_HET.value] = Q_het.data
+        results_dict[self.OutputKey.A_HET.value] = A_het.data
+        results_dict[self.OutputKey.PHI_HET.value] = phi_het.data
+        return results_dict
+
+    def butter_lowpass_filter(self, data, order):
+        nyquist_freq = (1 / 2) * (1 / self.sample_period)
+        normalized_cutoff = self.bandwidth / nyquist_freq
+        # Get the filter coefficients
+        b, a = butter(order, normalized_cutoff, btype='low', analog=False)
+        y = filtfilt(b, a, data)
+        return y
+
+    def demodulate(self, het_xr, downsample_rate):
+        time_data = het_xr.coords['time'].values
+        LO_signal = np.exp(1j * 2 * np.pi * self.carrier_frequency * time_data)
+        demod_sig = het_xr * LO_signal
+        demod_sig = self.butter_lowpass_filter(demod_sig, 3)
+        demod_sig = demod_sig[::downsample_rate]
+        I_sig = np.real(demod_sig)
+        Q_sig = np.imag(demod_sig)
+        A_sig = np.sqrt(I_sig ** 2 + Q_sig ** 2)
+        phi_sig = np.arctan2(Q_sig, I_sig)
+        time_data = time_data[::downsample_rate]
+        I_xr = xr.DataArray(I_sig, dims=['time'], coords={'time': time_data})
+        Q_xr = xr.DataArray(Q_sig, dims=['time'], coords={'time': time_data})
+        A_xr = xr.DataArray(A_sig, dims=['time'], coords={'time': time_data})
+        phi_xr = xr.DataArray(phi_sig, dims=['time'], coords={'time': time_data})
+        return I_xr, Q_xr, A_xr, phi_xr
