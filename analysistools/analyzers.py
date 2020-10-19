@@ -1,7 +1,7 @@
 import h5py
 import numpy as np
+from pathlib import Path
 import xarray as xr
-import specarray as sa
 from scipy.signal import butter, filtfilt
 from scipy.constants import hbar
 from enum import Enum
@@ -17,19 +17,12 @@ class Analyzer:
         raise NotImplementedError
 
     def __init__(self, analyzer_name='analyzer'):
+        self.input_param_dict = locals()
         self.analyzer_name = analyzer_name
-
-        self.input_param_dict = dict()
         self.analyzer_dict = None
-
-    def setup_input_param_dict(self):
-        self.input_param_dict = dict()
-        self.input_param_dict['analyzer_name'] = self.analyzer_name
-        self.input_param_dict['analyzer_type'] = self.analyzer_type
 
     def setup_analyzer_dict(self):
         analyzer_dict = dict()
-        self.setup_input_param_dict()
         analyzer_dict['input_params'] = self.input_param_dict
         for enum in self.OutputKey:
             key = enum.value
@@ -41,7 +34,6 @@ class Analyzer:
         analyzer_dict = self.setup_analyzer_dict()
         num_shots = data_dict['num_shots']
 
-        num_shots=5
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
             results_dict = self.analyze_shot(shot_num, datamodel)
@@ -65,12 +57,6 @@ class CountsAnalyzer(Analyzer):
         self.frame_name = frame_name
         self.roi_slice = roi_slice
 
-    def setup_input_param_dict(self):
-        super(CountsAnalyzer, self).setup_input_param_dict()
-        self.input_param_dict['datastream_name'] = self.datastream_name
-        self.input_param_dict['frame_name'] = self.frame_name
-        self.input_param_dict['roi_slice'] = self.roi_slice
-
     def analyze_shot(self, shot_num, datamodel):
         datastream = datamodel.datastream_dict[self.datastream_name]
         file_path = datastream.get_file_path(shot_num)
@@ -87,6 +73,7 @@ rb_atom_dict['linewidth'] = 2 * np.pi * 6.07e6  # Hz -  Steck Rubidium 87 D Line
 
 # W/m^2 - Steck Rubidium 87 D Line Data, convert mW/cm^2 to W/m^2
 rb_atom_dict['saturation_intensity'] = 1.67 * 1e4 / 1e3
+
 rb_atom_dict['transition_frequency'] = 2 * np.pi * 384.230e12  # Hz - D2 Transition
 
 
@@ -110,9 +97,13 @@ class AbsorptionAnalyzer(Analyzer):
 
     def __init__(self, datastream_name, atom_frame_name='atom_frame',
                  bright_frame_name='bright_frame', dark_frame_name='dark_frame',
-                 atom_dict=rb_atom_dict, imaging_system_dict=side_imaging_dict,
+                 atom_dict=None, imaging_system_dict=None,
                  roi_slice=None, calc_high_sat=False, analyzer_name='absorption_analyzer'):
         super(AbsorptionAnalyzer, self).__init__(analyzer_name)
+        if imaging_system_dict is None:
+            imaging_system_dict = side_imaging_dict
+        if atom_dict is None:
+            atom_dict = rb_atom_dict
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.bright_frame_name = bright_frame_name
@@ -130,17 +121,6 @@ class AbsorptionAnalyzer(Analyzer):
         self.pixel_area = self.imaging_system_dict['pixel_area']
         self.magnification = self.imaging_system_dict['magnification']
         self.count_conversion = self.imaging_system_dict['count_conversion']
-
-    def setup_input_param_dict(self):
-        super(AbsorptionAnalyzer, self).setup_input_param_dict()
-        self.input_param_dict['datastream_name'] = self.datastream_name
-        self.input_param_dict['atom_frame_name'] = self.atom_frame_name
-        self.input_param_dict['bright_frame_name'] = self.bright_frame_name
-        self.input_param_dict['dark_frame_name'] = self.dark_frame_name
-        self.input_param_dict['atom_dict'] = self.atom_dict
-        self.input_param_dict['imaging_system_dict'] = self.imaging_system_dict
-        self.input_param_dict['roi_slice'] = self.roi_slice
-        self.input_param_dict['calc_high_sat'] = self.calc_high_sat
 
     def analyze_shot(self, shot_num, datamodel):
         datastream = datamodel.datastream_dict[self.datastream_name]
@@ -229,18 +209,16 @@ class AbsorptionAnalyzer(Analyzer):
         return column_number
 
 
-class HetDemodulateAnalyzer(Analyzer):
+# noinspection PyPep8Naming
+class HetDemodulationAnalyzer(Analyzer):
     class OutputKey(Enum):
-        I_HET = 'I_het'
-        Q_HET = 'Q_het'
-        A_HET = 'A_het'
-        PHI_HET = 'Phi_het'
+        OUTPUT_FILE_PATH = 'output_file_path'
 
-    analyzer_type = 'HetDemodulateAnalyzer'
+    analyzer_type = 'HetDemodulationAnalyzer'
 
     def __init__(self, datastream_name, channel_name, segment_name, sample_period, carrier_frequency,
                  bandwidth, downsample_rate=1, analyzer_name='het_demod_analyzer'):
-        super(HetDemodulateAnalyzer, self).__init__(analyzer_name)
+        super(HetDemodulationAnalyzer, self).__init__(analyzer_name)
         self.datastream_name = datastream_name
         self.channel_name = channel_name
         self.segment_name = segment_name
@@ -249,43 +227,47 @@ class HetDemodulateAnalyzer(Analyzer):
         self.bandwidth = bandwidth
         self.downsample_rate = downsample_rate
 
-    def setup_input_param_dict(self):
-        super(HetDemodulateAnalyzer, self).setup_input_param_dict()
-        self.input_param_dict['datastream_name'] = self.datastream_name
-        self.input_param_dict['channel_name'] = self.channel_name
-        self.input_param_dict['segment_name'] = self.segment_name
-
     def analyze_shot(self, shot_num, datamodel):
         datastream = datamodel.datastream_dict[self.datastream_name]
         file_path = datastream.get_file_path(shot_num)
-        raw_het = h5py.File(file_path, 'r')[self.channel_name][self.segment_name]#[:].astype(float)
+        output_data_path = Path(datamodel.daily_path, 'analysis',
+                                datamodel.run_name, self.analyzer_name)
+        output_data_path.mkdir(parents=True, exist_ok=True)
+        output_file_path = Path(output_data_path, f'het_analysis_{shot_num:05d}.h5')
+
+        raw_het = h5py.File(file_path, 'r')[self.channel_name][self.segment_name]
 
         num_samples = len(raw_het)
         dt = self.sample_period
         t_coord = np.arange(0, num_samples) * dt
 
         raw_het_xr = xr.DataArray(raw_het, coords={'time': t_coord}, dims=['time'])
-        I_het, Q_het, A_het, phi_het = self.demodulate(raw_het_xr, self.downsample_rate)
+        I_het, Q_het, A_het, phi_het, time_series = self.demodulate(raw_het_xr, self.downsample_rate)
+
+        with h5py.File(str(output_file_path), 'w') as hf:
+            hf.create_dataset('I_het', data=I_het.astype('float'))
+            hf.create_dataset('Q_het', data=Q_het.astype('float'))
+            hf.create_dataset('A_het', data=A_het.astype('float'))
+            hf.create_dataset('phi_het', data=phi_het.astype('float'))
+            hf.create_dataset('time_series', data=time_series.astype('float'))
 
         results_dict = dict()
-        results_dict[self.OutputKey.I_HET.value] = I_het.data
-        results_dict[self.OutputKey.Q_HET.value] = Q_het.data
-        results_dict[self.OutputKey.A_HET.value] = A_het.data
-        results_dict[self.OutputKey.PHI_HET.value] = phi_het.data
+        results_dict[self.OutputKey.OUTPUT_FILE_PATH.value] = output_file_path
         return results_dict
 
     def butter_lowpass_filter(self, data, order):
         nyquist_freq = (1 / 2) * (1 / self.sample_period)
         normalized_cutoff = self.bandwidth / nyquist_freq
         # Get the filter coefficients
+        # noinspection PyTupleAssignmentBalance
         b, a = butter(order, normalized_cutoff, btype='low', analog=False)
         y = filtfilt(b, a, data)
         return y
 
     def demodulate(self, het_xr, downsample_rate):
         time_data = het_xr.coords['time'].values
-        LO_signal = np.exp(1j * 2 * np.pi * self.carrier_frequency * time_data)
-        demod_sig = het_xr * LO_signal
+        lo_signal = np.exp(1j * 2 * np.pi * self.carrier_frequency * time_data)
+        demod_sig = het_xr * lo_signal
         demod_sig = self.butter_lowpass_filter(demod_sig, 3)
         demod_sig = demod_sig[::downsample_rate]
         I_sig = np.real(demod_sig)
@@ -297,4 +279,4 @@ class HetDemodulateAnalyzer(Analyzer):
         Q_xr = xr.DataArray(Q_sig, dims=['time'], coords={'time': time_data})
         A_xr = xr.DataArray(A_sig, dims=['time'], coords={'time': time_data})
         phi_xr = xr.DataArray(phi_sig, dims=['time'], coords={'time': time_data})
-        return I_xr, Q_xr, A_xr, phi_xr
+        return I_xr, Q_xr, A_xr, phi_xr, time_data
