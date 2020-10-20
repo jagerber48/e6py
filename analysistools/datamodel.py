@@ -10,6 +10,13 @@ def qprint(text, quiet=False):
         print(text)
 
 
+def print_dict_tree(dict_tree, level=0):
+    for key in dict_tree.keys():
+        print(f'{"  "*level}{level}-{key}')
+        if isinstance(dict_tree[key], dict):
+            print_dict_tree(dict_tree[key], level+1)
+
+
 def get_shot_list_from_point(point, num_points, num_shots, start_shot=0, stop_shot=None):
     # TODO: Implement different conventions for shot and point start indices
     shots = np.arange(point, num_shots, num_points)
@@ -100,7 +107,7 @@ class DataModel:
                   f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
 
     def run_analysis(self):
-        if not 'analyzers' in self.data_dict:
+        if 'analyzers' not in self.data_dict:
             self.data_dict['analyzers'] = dict()
         for analyzer in self.analyzer_list:
             analyzer.analyze_run(self)
@@ -115,6 +122,9 @@ class DataModel:
     def run_reporters(self):
         for reporter in self.reporter_list:
             reporter.report(self)
+
+    def print_dict_tree(self):
+        print_dict_tree(self.data_dict, level=0)
 
     def set_shot_lists(self):
         self.data_dict['num_points'] = self.num_points

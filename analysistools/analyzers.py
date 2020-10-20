@@ -17,7 +17,7 @@ class Analyzer(InputParamLogger):
     def analyzer_type(self):
         raise NotImplementedError
 
-    def __init__(self, analyzer_name='analyzer'):
+    def __init__(self, *, analyzer_name='analyzer'):
         self.analyzer_name = analyzer_name
 
     def create_analyzer_dict(self, data_dict):
@@ -62,8 +62,8 @@ class CountsAnalyzer(Analyzer):
         COUNTS = 'counts'
     analyzer_type = 'CountsAnalyzer'
 
-    def __init__(self, datastream_name, frame_name, roi_slice=None, analyzer_name='counts_analyzer'):
-        super(CountsAnalyzer, self).__init__(analyzer_name)
+    def __init__(self, *, datastream_name, frame_name, roi_slice=None, analyzer_name='counts_analyzer'):
+        super(CountsAnalyzer, self).__init__(analyzer_name=analyzer_name)
         self.datastream_name = datastream_name
         self.frame_name = frame_name
         self.roi_slice = roi_slice
@@ -106,11 +106,11 @@ class AbsorptionAnalyzer(Analyzer):
 
     analyzer_type = 'AbsorptionAnalyzer'
 
-    def __init__(self, datastream_name, atom_frame_name='atom_frame',
+    def __init__(self, *, datastream_name, atom_frame_name='atom_frame',
                  bright_frame_name='bright_frame', dark_frame_name='dark_frame',
                  atom_dict=None, imaging_system_dict=None,
                  roi_slice=None, calc_high_sat=False, analyzer_name='absorption_analyzer'):
-        super(AbsorptionAnalyzer, self).__init__(analyzer_name)
+        super(AbsorptionAnalyzer, self).__init__(analyzer_name=analyzer_name)
         if imaging_system_dict is None:
             imaging_system_dict = side_imaging_dict
         if atom_dict is None:
@@ -227,9 +227,9 @@ class HetDemodulationAnalyzer(Analyzer):
 
     analyzer_type = 'HetDemodulationAnalyzer'
 
-    def __init__(self, datastream_name, channel_name, segment_name, sample_period, carrier_frequency,
+    def __init__(self, *, datastream_name, channel_name, segment_name, sample_period, carrier_frequency,
                  bandwidth, downsample_rate=1, analyzer_name='het_demod_analyzer'):
-        super(HetDemodulationAnalyzer, self).__init__(analyzer_name)
+        super(HetDemodulationAnalyzer, self).__init__(analyzer_name=analyzer_name)
         self.datastream_name = datastream_name
         self.channel_name = channel_name
         self.segment_name = segment_name

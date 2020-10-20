@@ -12,7 +12,7 @@ class Aggregator(InputParamLogger):
     def aggregator_type(self):
         raise NotImplementedError
 
-    def __init__(self, aggregator_name='aggregator'):
+    def __init__(self, *, aggregator_name='aggregator'):
         self.aggregator_name = aggregator_name
 
     def create_aggregator_dict(self, data_dict):
@@ -58,15 +58,50 @@ class Aggregator(InputParamLogger):
         raise NotImplementedError
 
 
+class MeanAggregator(Aggregator):
+    aggregator_type = 'MeanAggregator'
+
+    def __init__(self, *, aggregator_name='MeanAggregator'):
+        super(MeanAggregator, self).__init__(aggregator_name=aggregator_name)
+
+    def aggregate_point(self, point, datamodel):
+        data_dict = datamodel.data_dict
+        point_key = f'point-{point:d}'
+
+        shot_list = data_dict['shot_list'][point_key]
+        num_loops = data_dict['loop_nums'][point_key]
+
+        aggregation_dict = dict()
+
+        for analyzer in data_dict['analyzers']:
+            aggregation_dict[analyzer.input_param_dict]
+            results_dict = analyzer['results']
+            # get the keys for the results corresponding to the first shot
+            results_keys = results_dict.values()[0].keys()
+
+            for key in results_keys:
+                avg_value = None
+                for shot in shot_list:
+                    shot_key = f'shot-{shot}'
+                    value = results_dict[shot_key][key]
+                    if avg_value is None:
+                        avg_value = value / num_loops
+                    else:
+                        avg_value += value / num_loops
+
+
+
+
+
 class AvgAtomRefImageAggregator(Aggregator):
     class OutputKey(Enum):
         AVERAGE_ATOM_IMG = 'avg_atom_img'
         AVERAGE_REF_IMG = 'avg_ref_img'
     aggregator_type = 'AvgAtomRefImageAggregator'
 
-    def __init__(self, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
+    def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
                  aggregator_name='avg_atom_ref_img_aggregator'):
-        super(AvgAtomRefImageAggregator, self).__init__(aggregator_name)
+        super(AvgAtomRefImageAggregator, self).__init__(aggregator_name=aggregator_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
@@ -106,9 +141,9 @@ class RandomAtomRefImageAggregator(Aggregator):
 
     aggregator_type = 'RandomAtomRefImageAggregator'
 
-    def __init__(self, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
+    def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
                  aggregator_name='random_atom_ref_img_aggregator'):
-        super(RandomAtomRefImageAggregator, self).__init__(aggregator_name)
+        super(RandomAtomRefImageAggregator, self).__init__(aggregator_name=aggregator_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
