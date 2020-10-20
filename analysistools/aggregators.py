@@ -4,58 +4,12 @@ from .imagetools import get_image
 from .datamodel import InputParamLogger, qprint
 
 
-# class Aggregator:
-#     class OutputKey(Enum):
-#         pass
-#
-#     @property
-#     def aggregator_type(self):
-#         raise NotImplementedError
-#
-#     def __init__(self, aggregator_name='aggregator'):
-#         self.aggregator_name = aggregator_name
-#
-#         self.input_param_dict = None
-#         self.aggregator_dict = None
-#
-#     def setup_input_param_dict(self):
-#         self.input_param_dict = dict()
-#         self.input_param_dict['aggregator_name'] = self.aggregator_name
-#         self.input_param_dict['aggregator_type'] = self.aggregator_type
-#
-#     def setup_aggregator_dict(self):
-#         aggregator_dict = dict()
-#         self.setup_input_param_dict()
-#         aggregator_dict['input_params'] = self.input_param_dict
-#         for enum in self.OutputKey:
-#             key = enum.value
-#             aggregator_dict[key] = dict()
-#         return aggregator_dict
-#
-#     def aggregate_run(self, datamodel):
-#         data_dict = datamodel.data_dict
-#         aggregator_dict = self.setup_aggregator_dict()
-#         num_points = data_dict['num_points']
-#
-#         for point in range(num_points):
-#             point_key = f'point-{point:d}'
-#             shot_list = data_dict['shot_list'][point_key]
-#             results_dict = self.aggregate_point(point, datamodel)
-#             for key, value in results_dict.items():
-#                 aggregator_dict[key][point_key] = value
-#
-#         data_dict['aggregators'][self.aggregator_name] = aggregator_dict
-#
-#     def aggregate_point(self, point, datamodel):
-#         raise NotImplementedError
-
-
 class Aggregator(InputParamLogger):
     class OutputKey(Enum):
         pass
 
     @property
-    def analyzer_type(self):
+    def aggregator_type(self):
         raise NotImplementedError
 
     def __init__(self, aggregator_name='aggregator'):
@@ -77,7 +31,6 @@ class Aggregator(InputParamLogger):
         else:
             aggregator_dict = self.create_aggregator_dict(data_dict)
         return aggregator_dict
-
 
     def aggregate_run(self, datamodel, quiet=False):
         qprint(f'Running {self.aggregator_name} aggregation...', quiet=quiet)
@@ -111,19 +64,13 @@ class AvgAtomRefImageAggregator(Aggregator):
         AVERAGE_REF_IMG = 'avg_ref_img'
     aggregator_type = 'AvgAtomRefImageAggregator'
 
-    def __init__(self, datastream_name, atom_frame_name, ref_frame_name, roi_slice, aggregator_name='avg_atom_ref_img_aggregator'):
+    def __init__(self, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
+                 aggregator_name='avg_atom_ref_img_aggregator'):
         super(AvgAtomRefImageAggregator, self).__init__(aggregator_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
         self.roi_slice = roi_slice
-
-    def setup_analyzer_dict(self):
-        analyzer_dict = super(AvgAtomRefImageAggregator, self).setup_aggregator_dict()
-        analyzer_dict['datastream_name'] = self.datastream_name
-        analyzer_dict['atom_frame_name'] = self.atom_frame_name
-        analyzer_dict['ref_frame_name'] = self.ref_frame_name
-        analyzer_dict['roi_slice'] = self.roi_slice
 
     def aggregate_point(self, point, datamodel):
         data_dict = datamodel.data_dict
@@ -159,18 +106,13 @@ class RandomAtomRefImageAggregator(Aggregator):
 
     aggregator_type = 'RandomAtomRefImageAggregator'
 
-    def __init__(self, datastream_name, atom_frame_name, ref_frame_name, roi_slice, aggregator_name='random_atom_ref_img_aggregator'):
+    def __init__(self, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
+                 aggregator_name='random_atom_ref_img_aggregator'):
         super(RandomAtomRefImageAggregator, self).__init__(aggregator_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
         self.roi_slice = roi_slice
-
-    def setup_analyzer_dict(self):
-        analyzer_dict = super(RandomAtomRefImageAggregator, self).setup_aggregator_dict()
-        analyzer_dict['atom_frame_name'] = self.atom_frame_name
-        analyzer_dict['ref_frame_name'] = self.ref_frame_name
-        analyzer_dict['roi_slice'] = self.roi_slice
 
     def aggregate_point(self, point, datamodel):
         datastream = datamodel.datastream_dict[self.datastream_name]
