@@ -5,6 +5,11 @@ import pickle
 import h5py
 
 
+def qprint(text, quiet=False):
+    if not quiet:
+        print(text)
+
+
 def get_shot_list_from_point(point, num_points, num_shots, start_shot=0, stop_shot=None):
     # TODO: Implement different conventions for shot and point start indices
     shots = np.arange(point, num_shots, num_points)
@@ -87,11 +92,13 @@ class DataModel:
                   f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
 
     def run_analysis(self):
-        self.data_dict['analyzers'] = dict()
+        if not 'analyzers' in self.data_dict:
+            self.data_dict['analyzers'] = dict()
         for analyzer in self.analyzer_list:
             analyzer.analyze_run(self)
 
-        self.data_dict['aggregators'] = dict()
+        if 'aggregators' not in self.data_dict:
+            self.data_dict['aggregators'] = dict()
         for aggregator in self.aggregator_list:
             aggregator.aggregate_run(self)
 
@@ -159,6 +166,7 @@ class DataModelDict:
 
     def load_dict(self):
         try:
+            print(f'Loading data_dict from {self.file_path}')
             self.data_dict = pickle.load(open(self.file_path, 'rb'))
         except FileNotFoundError as e:
             print(e)
@@ -168,6 +176,7 @@ class DataModelDict:
         return self.data_dict
 
     def save_dict(self):
+        print(f'Saving data_dict to {self.file_path}')
         pickle.dump(self.data_dict, open(self.file_path, 'wb'))
 
     def __getitem__(self, item):
@@ -184,6 +193,12 @@ class DataModelDict:
 
     def __delitem__(self, key):
         del self.data_dict[key]
+
+    def __iter__(self):
+        return iter(self.data_dict)
+
+    def __len__(self):
+        return len(self.data_dict)
 
     def keys(self):
         return self.data_dict.keys()

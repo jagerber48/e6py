@@ -6,6 +6,7 @@ from scipy.signal import butter, filtfilt
 from scipy.constants import hbar
 from enum import Enum
 from .imagetools import get_image
+from .datamodel import qprint
 
 
 class Analyzer:
@@ -18,29 +19,46 @@ class Analyzer:
 
     def __init__(self, analyzer_name='analyzer'):
         self.input_param_dict = locals()
+        self.input_param_dict.pop('self')
         self.analyzer_name = analyzer_name
         self.analyzer_dict = None
 
     def setup_analyzer_dict(self):
         analyzer_dict = dict()
-        analyzer_dict['input_params'] = self.input_param_dict
-        for enum in self.OutputKey:
-            key = enum.value
-            analyzer_dict[key] = dict()
+        analyzer_dict['input_param_dict'] = self.input_param_dict
+        # for enum in self.OutputKey:
+        #     key = enum.value
+        #     analyzer_dict[key] = dict()
         return analyzer_dict
 
-    def analyze_run(self, datamodel):
+    def analyze_run(self, datamodel, quiet=False):
         data_dict = datamodel.data_dict
-        analyzer_dict = self.setup_analyzer_dict()
+        if self.analyzer_name in data_dict['analyzers']:
+            analyzer_dict = data_dict['analyzers'][self.analyzer_name]
+            old_input_param_dict = analyzer_dict['input_param_dict']
+            if old_input_param_dict == self.input_param_dict:
+                reset_hard = False
+            else:
+                reset_hard = True
+                analyzer_dict = self.setup_analyzer_dict()
+                data_dict['analyzers'][self.analyzer_name] = analyzer_dict
+        else:
+            reset_hard = True
+            analyzer_dict = self.setup_analyzer_dict()
+            data_dict['analyzers'][self.analyzer_name] = analyzer_dict
+
         num_shots = data_dict['num_shots']
 
+        num_shots = 5
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
-            results_dict = self.analyze_shot(shot_num, datamodel)
-            for key, value in results_dict.items():
-                analyzer_dict[key][shot_key] = value
-
-        data_dict['analyzers'][self.analyzer_name] = analyzer_dict
+            if shot_key not in analyzer_dict or reset_hard:
+                print(f'analyzing {shot_key}')
+                results_dict = self.analyze_shot(shot_num, datamodel)
+                analyzer_dict[shot_key] = results_dict
+            else:
+                print(f'skipping {shot_key} analysis')
+        # data_dict['analyzers'][self.analyzer_name] = analyzer_dict
 
     def analyze_shot(self, shot_num, datamodel):
         raise NotImplementedError
