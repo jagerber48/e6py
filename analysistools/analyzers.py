@@ -25,7 +25,7 @@ class Analyzer(InputParamLogger):
     def analyzer_type(self):
         raise NotImplementedError
 
-    def __init__(self, analyzer_name='analyzer', *args, **kwargs):
+    def __init__(self, analyzer_name='analyzer'):
         self.analyzer_name = analyzer_name
 
     def create_analyzer_dict(self, data_dict):
@@ -39,7 +39,7 @@ class Analyzer(InputParamLogger):
         if self.analyzer_name in data_dict['analyzers']:
             analyzer_dict = data_dict['analyzers'][self.analyzer_name]
             old_input_param_dict = analyzer_dict['input_param_dict']
-            if analyzer_dict['input_param_dict'] != old_input_param_dict:
+            if self.input_param_dict != old_input_param_dict:
                 analyzer_dict = self.create_analyzer_dict(data_dict)
         else:
             analyzer_dict = self.create_analyzer_dict(data_dict)
@@ -57,6 +57,7 @@ class Analyzer(InputParamLogger):
                 qprint(f'analyzing {shot_key}', quiet=quiet)
                 results_dict = self.analyze_shot(shot_num, datamodel)
                 analyzer_dict['results'][shot_key] = results_dict
+                data_dict.save_dict(quiet=True)
             else:
                 qprint(f'skipping {shot_key} analysis', quiet=quiet)
 
