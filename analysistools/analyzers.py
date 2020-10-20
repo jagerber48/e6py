@@ -9,7 +9,15 @@ from .imagetools import get_image
 from .datamodel import qprint
 
 
-class Analyzer:
+class InputParamLogger:
+    def __new__(cls, *args, **kwargs):
+        input_param_dict = {'args': args, 'kwargs': kwargs}
+        obj = super(InputParamLogger, cls).__new__(cls)
+        obj.input_param_dict = input_param_dict
+        return obj
+
+
+class Analyzer(InputParamLogger):
     class OutputKey(Enum):
         pass
 
@@ -17,48 +25,40 @@ class Analyzer:
     def analyzer_type(self):
         raise NotImplementedError
 
-    def __init__(self, analyzer_name='analyzer'):
-        self.input_param_dict = locals()
-        self.input_param_dict.pop('self')
+    def __init__(self, analyzer_name='analyzer', *args, **kwargs):
         self.analyzer_name = analyzer_name
-        self.analyzer_dict = None
 
-    def setup_analyzer_dict(self):
+    def create_analyzer_dict(self, data_dict):
         analyzer_dict = dict()
         analyzer_dict['input_param_dict'] = self.input_param_dict
-        # for enum in self.OutputKey:
-        #     key = enum.value
-        #     analyzer_dict[key] = dict()
+        analyzer_dict['results'] = dict()
+        data_dict['analyzers'][self.analyzer_name] = analyzer_dict
         return analyzer_dict
 
-    def analyze_run(self, datamodel, quiet=False):
-        data_dict = datamodel.data_dict
+    def check_data_dict(self, data_dict):
         if self.analyzer_name in data_dict['analyzers']:
             analyzer_dict = data_dict['analyzers'][self.analyzer_name]
             old_input_param_dict = analyzer_dict['input_param_dict']
-            if old_input_param_dict == self.input_param_dict:
-                reset_hard = False
-            else:
-                reset_hard = True
-                analyzer_dict = self.setup_analyzer_dict()
-                data_dict['analyzers'][self.analyzer_name] = analyzer_dict
+            if analyzer_dict['input_param_dict'] != old_input_param_dict:
+                analyzer_dict = self.create_analyzer_dict(data_dict)
         else:
-            reset_hard = True
-            analyzer_dict = self.setup_analyzer_dict()
-            data_dict['analyzers'][self.analyzer_name] = analyzer_dict
+            analyzer_dict = self.create_analyzer_dict(data_dict)
+        return analyzer_dict
+
+    def analyze_run(self, datamodel, quiet=False):
+        qprint(f'Running {self.analyzer_name} analysis...', quiet=quiet)
+        data_dict = datamodel.data_dict
+        analyzer_dict = self.check_data_dict(data_dict)
 
         num_shots = data_dict['num_shots']
-
-        num_shots = 5
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
-            if shot_key not in analyzer_dict or reset_hard:
-                print(f'analyzing {shot_key}')
+            if shot_key not in analyzer_dict['results']:
+                qprint(f'analyzing {shot_key}', quiet=quiet)
                 results_dict = self.analyze_shot(shot_num, datamodel)
-                analyzer_dict[shot_key] = results_dict
+                analyzer_dict['results'][shot_key] = results_dict
             else:
-                print(f'skipping {shot_key} analysis')
-        # data_dict['analyzers'][self.analyzer_name] = analyzer_dict
+                qprint(f'skipping {shot_key} analysis', quiet=quiet)
 
     def analyze_shot(self, shot_num, datamodel):
         raise NotImplementedError
