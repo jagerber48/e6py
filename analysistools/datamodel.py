@@ -52,6 +52,14 @@ def to_list(var):
         return [var]
 
 
+class InputParamLogger:
+    def __new__(cls, *args, **kwargs):
+        input_param_dict = {'args': args, 'kwargs': kwargs}
+        obj = super(InputParamLogger, cls).__new__(cls)
+        obj.input_param_dict = input_param_dict
+        return obj
+
+
 class DataModel:
     def __init__(self, daily_path, run_name, num_points=1, datastream_list=None, analyzer_list=None,
                  aggregator_list=None, reporter_list=None, reset_hard=False):

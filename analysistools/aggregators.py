@@ -1,49 +1,105 @@
 import numpy as np
 from enum import Enum
 from .imagetools import get_image
+from .datamodel import InputParamLogger, qprint
 
 
-class Aggregator:
+# class Aggregator:
+#     class OutputKey(Enum):
+#         pass
+#
+#     @property
+#     def aggregator_type(self):
+#         raise NotImplementedError
+#
+#     def __init__(self, aggregator_name='aggregator'):
+#         self.aggregator_name = aggregator_name
+#
+#         self.input_param_dict = None
+#         self.aggregator_dict = None
+#
+#     def setup_input_param_dict(self):
+#         self.input_param_dict = dict()
+#         self.input_param_dict['aggregator_name'] = self.aggregator_name
+#         self.input_param_dict['aggregator_type'] = self.aggregator_type
+#
+#     def setup_aggregator_dict(self):
+#         aggregator_dict = dict()
+#         self.setup_input_param_dict()
+#         aggregator_dict['input_params'] = self.input_param_dict
+#         for enum in self.OutputKey:
+#             key = enum.value
+#             aggregator_dict[key] = dict()
+#         return aggregator_dict
+#
+#     def aggregate_run(self, datamodel):
+#         data_dict = datamodel.data_dict
+#         aggregator_dict = self.setup_aggregator_dict()
+#         num_points = data_dict['num_points']
+#
+#         for point in range(num_points):
+#             point_key = f'point-{point:d}'
+#             shot_list = data_dict['shot_list'][point_key]
+#             results_dict = self.aggregate_point(point, datamodel)
+#             for key, value in results_dict.items():
+#                 aggregator_dict[key][point_key] = value
+#
+#         data_dict['aggregators'][self.aggregator_name] = aggregator_dict
+#
+#     def aggregate_point(self, point, datamodel):
+#         raise NotImplementedError
+
+
+class Aggregator(InputParamLogger):
     class OutputKey(Enum):
         pass
 
     @property
-    def aggregator_type(self):
+    def analyzer_type(self):
         raise NotImplementedError
 
     def __init__(self, aggregator_name='aggregator'):
         self.aggregator_name = aggregator_name
 
-        self.input_param_dict = None
-        self.aggregator_dict = None
-
-    def setup_input_param_dict(self):
-        self.input_param_dict = dict()
-        self.input_param_dict['aggregator_name'] = self.aggregator_name
-        self.input_param_dict['aggregator_type'] = self.aggregator_type
-
-    def setup_aggregator_dict(self):
+    def create_aggregator_dict(self, data_dict):
         aggregator_dict = dict()
-        self.setup_input_param_dict()
-        aggregator_dict['input_params'] = self.input_param_dict
-        for enum in self.OutputKey:
-            key = enum.value
-            aggregator_dict[key] = dict()
+        aggregator_dict['input_param_dict'] = self.input_param_dict
+        aggregator_dict['results'] = dict()
+        data_dict['aggregators'][self.aggregator_name] = aggregator_dict
         return aggregator_dict
 
-    def aggregate_run(self, datamodel):
-        data_dict = datamodel.data_dict
-        aggregator_dict = self.setup_aggregator_dict()
-        num_points = data_dict['num_points']
+    def check_data_dict(self, data_dict):
+        if self.aggregator_name in data_dict['aggregators']:
+            aggregator_dict = data_dict['aggregators'][self.aggregator_name]
+            old_input_param_dict = aggregator_dict['input_param_dict']
+            if self.input_param_dict != old_input_param_dict:
+                aggregator_dict = self.create_aggregator_dict(data_dict)
+        else:
+            aggregator_dict = self.create_aggregator_dict(data_dict)
+        return aggregator_dict
 
+
+    def aggregate_run(self, datamodel, quiet=False):
+        qprint(f'Running {self.aggregator_name} aggregation...', quiet=quiet)
+        data_dict = datamodel.data_dict
+        aggregator_dict = self.check_data_dict(data_dict)
+
+        num_points = data_dict['num_points']
         for point in range(num_points):
             point_key = f'point-{point:d}'
-            shot_list = data_dict['shot_list'][point_key]
-            results_dict = self.aggregate_point(point, datamodel)
-            for key, value in results_dict.items():
-                aggregator_dict[key][point_key] = value
-
-        data_dict['aggregators'][self.aggregator_name] = aggregator_dict
+            try:
+                old_aggregated_shots = list(aggregator_dict['results'][point_key]['aggregated_shots'])
+            except KeyError:
+                old_aggregated_shots = []
+            shots_to_be_aggregated = list(data_dict['shot_list'][point_key])
+            if shots_to_be_aggregated != old_aggregated_shots:
+                qprint(f'aggregating {point_key}', quiet=quiet)
+                results_dict = self.aggregate_point(point, datamodel)
+                aggregator_dict['results'][point_key] = results_dict
+                aggregator_dict['results'][point_key]['aggregated_shots'] = shots_to_be_aggregated
+                data_dict.save_dict(quiet=True)
+            else:
+                qprint(f'skipping {point_key} aggregation', quiet=quiet)
 
     def aggregate_point(self, point, datamodel):
         raise NotImplementedError

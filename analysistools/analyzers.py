@@ -6,15 +6,7 @@ from scipy.signal import butter, filtfilt
 from scipy.constants import hbar
 from enum import Enum
 from .imagetools import get_image
-from .datamodel import qprint
-
-
-class InputParamLogger:
-    def __new__(cls, *args, **kwargs):
-        input_param_dict = {'args': args, 'kwargs': kwargs}
-        obj = super(InputParamLogger, cls).__new__(cls)
-        obj.input_param_dict = input_param_dict
-        return obj
+from .datamodel import InputParamLogger, qprint
 
 
 class Analyzer(InputParamLogger):

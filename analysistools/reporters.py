@@ -29,8 +29,8 @@ class AtomRefCountsReporter(Reporter):
             atom_data = []
             ref_data = []
             for shot in shot_list:
-                atom_counts = data_dict['analyzers'][self.atom_counts_analyzer_name]['counts'][f'shot-{shot}']
-                ref_counts = data_dict['analyzers'][self.ref_counts_analyzer_name]['counts'][f'shot-{shot}']
+                atom_counts = data_dict['analyzers'][self.atom_counts_analyzer_name]['results'][f'shot-{shot}']['counts']
+                ref_counts = data_dict['analyzers'][self.ref_counts_analyzer_name]['results'][f'shot-{shot}']['counts']
                 atom_data.append(atom_counts)
                 ref_data.append(ref_counts)
             fig = plt.figure(figsize=(12, 12))
@@ -78,17 +78,17 @@ class AvgRndmImgReporter(Reporter):
             num_loops = data_dict['loop_nums'][point_key]
 
             atom_rndm_img = dataset_from_keychain(datamodel,
-                                                  f'aggregators/{self.rndm_aggregator_name}'
-                                                  f'/random_atom_img/{point_key}')
+                                                  f'aggregators/{self.rndm_aggregator_name}/results'
+                                                  f'/{point_key}/random_atom_img')
             ref_rndm_img = dataset_from_keychain(datamodel,
-                                                 f'aggregators/{self.rndm_aggregator_name}'
-                                                 f'/random_ref_img/{point_key}')
+                                                 f'aggregators/{self.rndm_aggregator_name}/results'
+                                                 f'/{point_key}/random_atom_img')
             atom_avg_img = dataset_from_keychain(datamodel,
-                                                 f'aggregators/{self.avg_aggregator_name}'
-                                                 f'/avg_atom_img/{point_key}')
+                                                 f'aggregators/{self.avg_aggregator_name}/results'
+                                                 f'/{point_key}/avg_atom_img')
             ref_avg_img = dataset_from_keychain(datamodel,
-                                                f'aggregators/{self.avg_aggregator_name}'
-                                                f'/avg_ref_img/{point_key}')
+                                                f'aggregators/{self.avg_aggregator_name}/results'
+                                                f'/{point_key}/avg_atom_img')
 
             single_min_list = [np.nanmin(img) for img in [atom_rndm_img, ref_rndm_img]]
             single_min_val = np.nanmin(single_min_list)
@@ -101,8 +101,8 @@ class AvgRndmImgReporter(Reporter):
             avg_max_val = np.nanmax(avg_max_list)
 
             random_shot_num = dataset_from_keychain(datamodel,
-                                                    f'aggregators/{self.rndm_aggregator_name}'
-                                                    f'/random_shot_num/{point_key}')
+                                                    f'aggregators/{self.rndm_aggregator_name}/results'
+                                                    f'/{point_key}/random_shot_num')
 
             fig = plt.figure(figsize=(12, 12))
 
