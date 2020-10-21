@@ -43,6 +43,19 @@ def shot_to_loop_and_point(shot, num_points=1, shot_index_convention=0,
     return loop, point
 
 
+def loop_and_point_to_shot(loop, point, num_points=1, shot_index_convention=0,
+                           loop_index_convention=0, point_index_convention=0):
+    """
+    Convert loop and point to shot number using the number of points. Default assumption is indexing for
+    shot, loop, and point all starts from zero with options for other conventions.
+    """
+    loop_ind = loop - loop_index_convention
+    point_ind = point - point_index_convention
+    shot_ind = loop_ind * num_points + point_ind
+    shot = shot_ind + shot_index_convention
+    return shot
+
+
 def dataset_from_keychain(datamodel, keychain):
     data_dict = datamodel.data_dict
     data = reduce(lambda x, y: x[y], keychain.split('/'), data_dict)

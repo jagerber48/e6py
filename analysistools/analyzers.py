@@ -21,6 +21,7 @@ class Analyzer(InputParamLogger):
     def __init__(self, *, analyzer_name, reset):
         self.analyzer_name = analyzer_name
         self.reset = reset
+        self.input_param_dict['analyzer_type'] = self.analyzer_type
 
     def create_analyzer_dict(self, data_dict):
         analyzer_dict = dict()
@@ -312,3 +313,9 @@ class AbsorptionGaussianFitAnalyzer(Analyzer):
         fit_struct = fit_gaussian2d(frame, show_plot=False, save_name=None, quiet=True)
         results_dict = {self.OutputKey.GAUSSIAN_FIT_STRUCT.value: fit_struct}
         return results_dict
+
+class CavSweepAnalyzer(Analyzer):
+    class OutputKey(Enum):
+        GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
+
+    analyzer_type = 'CavSweepAnalyzer'

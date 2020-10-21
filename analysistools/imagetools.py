@@ -1,9 +1,5 @@
 import numpy as np
-from pathlib import Path
 import h5py
-import matplotlib.pyplot as plt
-from . import datatools
-from .datatools import shot_to_loop_and_point
 
 
 def get_image(file_path, image_key, roi_slice=None):
@@ -28,34 +24,6 @@ def roi_from_center_pixel(center_pixel, pixel_half_ranges):
     y_slice = slice(y_lower, y_upper, 1)
 
     return tuple((y_slice, x_slice))
-
-
-def counts_mean_and_std(analysis_dict):
-    counts_analysis_dict = analysis_dict['counts_analysis']
-
-    counts_analysis_dict['counts_mean'] = dict()
-    counts_analysis_dict['counts_std'] = dict()
-    counts_analysis_dict['ref_counts_mean'] = dict()
-    counts_analysis_dict['ref_counts_std'] = dict()
-
-    counts_dict = counts_analysis_dict['counts']
-    ref_counts_dict = counts_analysis_dict['ref_counts']
-    num_points = analysis_dict['num_points']
-
-    for point in range(num_points):
-        point_key = f'point-{point:d}'
-        counts = counts_dict[point_key]
-        counts_mean = np.mean(counts)
-        counts_std = np.std(counts)
-        counts_analysis_dict['counts_mean'][point_key] = counts_mean
-        counts_analysis_dict['counts_std'][point_key] = counts_std
-
-        ref_counts = ref_counts_dict[point_key]
-        ref_counts_mean = np.mean(ref_counts)
-        ref_counts_std = np.std(ref_counts)
-        counts_analysis_dict['ref_counts_mean'][point_key] = ref_counts_mean
-        counts_analysis_dict['ref_counts_std'][point_key] = ref_counts_std
-    analysis_dict.save_dict()
 
 
 def threshold_discrimination_analysis(analysis_dict, threshold):
