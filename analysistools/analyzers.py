@@ -17,7 +17,7 @@ class Analyzer(InputParamLogger):
     def analyzer_type(self):
         raise NotImplementedError
 
-    def __init__(self, *, analyzer_name='analyzer'):
+    def __init__(self, *, analyzer_name):
         self.analyzer_name = analyzer_name
 
     def create_analyzer_dict(self, data_dict):
@@ -62,7 +62,7 @@ class CountsAnalyzer(Analyzer):
         COUNTS = 'counts'
     analyzer_type = 'CountsAnalyzer'
 
-    def __init__(self, *, datastream_name, frame_name, roi_slice=None, analyzer_name='counts_analyzer'):
+    def __init__(self, *, datastream_name, frame_name, roi_slice, analyzer_name):
         super(CountsAnalyzer, self).__init__(analyzer_name=analyzer_name)
         self.datastream_name = datastream_name
         self.frame_name = frame_name
@@ -106,10 +106,10 @@ class AbsorptionAnalyzer(Analyzer):
 
     analyzer_type = 'AbsorptionAnalyzer'
 
-    def __init__(self, *, datastream_name, atom_frame_name='atom_frame',
-                 bright_frame_name='bright_frame', dark_frame_name='dark_frame',
-                 atom_dict=None, imaging_system_dict=None,
-                 roi_slice=None, calc_high_sat=False, analyzer_name='absorption_analyzer'):
+    def __init__(self, *, datastream_name, atom_frame_name,
+                 bright_frame_name, dark_frame_name,
+                 atom_dict, imaging_system_dict,
+                 roi_slice, calc_high_sat, analyzer_name):
         super(AbsorptionAnalyzer, self).__init__(analyzer_name=analyzer_name)
         if imaging_system_dict is None:
             imaging_system_dict = side_imaging_dict
@@ -228,7 +228,7 @@ class HetDemodulationAnalyzer(Analyzer):
     analyzer_type = 'HetDemodulationAnalyzer'
 
     def __init__(self, *, datastream_name, channel_name, segment_name, sample_period, carrier_frequency,
-                 bandwidth, downsample_rate=1, analyzer_name='het_demod_analyzer'):
+                 bandwidth, downsample_rate, analyzer_name):
         super(HetDemodulationAnalyzer, self).__init__(analyzer_name=analyzer_name)
         self.datastream_name = datastream_name
         self.channel_name = channel_name

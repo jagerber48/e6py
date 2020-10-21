@@ -12,7 +12,7 @@ class Aggregator(InputParamLogger):
     def aggregator_type(self):
         raise NotImplementedError
 
-    def __init__(self, *, aggregator_name='aggregator'):
+    def __init__(self, *, aggregator_name):
         self.aggregator_name = aggregator_name
 
     def create_aggregator_dict(self, data_dict):
@@ -58,11 +58,11 @@ class Aggregator(InputParamLogger):
         raise NotImplementedError
 
 
-class MeanAggregator(Aggregator):
-    aggregator_type = 'MeanAggregator'
+class MeanStdAggregator(Aggregator):
+    aggregator_type = 'MeanStdAggregator'
 
-    def __init__(self, *, aggregator_name='MeanAggregator'):
-        super(MeanAggregator, self).__init__(aggregator_name=aggregator_name)
+    def __init__(self, *, aggregator_name):
+        super(MeanStdAggregator, self).__init__(aggregator_name=aggregator_name)
 
     def aggregate_point(self, point, datamodel):
         data_dict = datamodel.data_dict
@@ -73,11 +73,13 @@ class MeanAggregator(Aggregator):
 
         aggregation_dict = dict()
 
-        for analyzer in data_dict['analyzers']:
-            aggregation_dict[analyzer.input_param_dict]
-            results_dict = analyzer['results']
+        for analyzer_dict in data_dict['analyzers'].values():
+            analyzer_name = analyzer_dict['input_param_dict']['kwargs']['analyzer_name']
+            aggregation_dict[analyzer_name] = dict()
+            results_dict = analyzer_dict['results']
+
             # get the keys for the results corresponding to the first shot
-            results_keys = results_dict.values()[0].keys()
+            results_keys = next(iter(results_dict.values()))
 
             for key in results_keys:
                 avg_value = None
@@ -89,8 +91,20 @@ class MeanAggregator(Aggregator):
                     else:
                         avg_value += value / num_loops
 
+                std_value = None
+                for shot in shot_list:
+                    shot_key = f'shot-{shot}'
+                    value = results_dict[shot_key][key]
+                    if std_value is None:
+                        std_value = (value - avg_value)**2 / (num_loops - 1)
+                    else:
+                        std_value += (value - avg_value)**2 / (num_loops - 1)
 
+                aggregation_dict[analyzer_name][key] = dict()
+                aggregation_dict[analyzer_name][key]['mean'] = avg_value
+                aggregation_dict[analyzer_name][key]['std'] = std_value
 
+        return aggregation_dict
 
 
 class AvgAtomRefImageAggregator(Aggregator):
@@ -100,7 +114,7 @@ class AvgAtomRefImageAggregator(Aggregator):
     aggregator_type = 'AvgAtomRefImageAggregator'
 
     def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
-                 aggregator_name='avg_atom_ref_img_aggregator'):
+                 aggregator_name):
         super(AvgAtomRefImageAggregator, self).__init__(aggregator_name=aggregator_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
@@ -142,7 +156,7 @@ class RandomAtomRefImageAggregator(Aggregator):
     aggregator_type = 'RandomAtomRefImageAggregator'
 
     def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
-                 aggregator_name='random_atom_ref_img_aggregator'):
+                 aggregator_name):
         super(RandomAtomRefImageAggregator, self).__init__(aggregator_name=aggregator_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
