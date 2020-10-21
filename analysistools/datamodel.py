@@ -139,8 +139,8 @@ class DataModel:
         self.data_dict.save_dict()
 
 
-class RawDataStream:
-    def __init__(self, datastream_name, file_prefix):
+class RawDataStream(InputParamLogger):
+    def __init__(self, *, datastream_name, file_prefix):
         self.datastream_name = datastream_name
         self.file_prefix = file_prefix
         self.data_path = None
@@ -186,7 +186,7 @@ class DataModelDict:
         try:
             qprint(f'Loading data_dict from {self.file_path}', quiet)
             self.data_dict = pickle.load(open(self.file_path, 'rb'))
-        except FileNotFoundError as e:
+        except (FileNotFoundError, EOFError) as e:
             qprint(e, quiet=quiet)
             qprint(f'Creating {self.filename} in {self.dir_path}', quiet=quiet)
             self.data_dict = dict()

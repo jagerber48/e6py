@@ -7,6 +7,7 @@ from scipy.constants import hbar
 from enum import Enum
 from .imagetools import get_image
 from .datamodel import InputParamLogger, qprint
+from ..smart_gaussian2d_fit import fit_gaussian2d
 
 
 class Analyzer(InputParamLogger):
@@ -17,8 +18,9 @@ class Analyzer(InputParamLogger):
     def analyzer_type(self):
         raise NotImplementedError
 
-    def __init__(self, *, analyzer_name):
+    def __init__(self, *, analyzer_name, reset):
         self.analyzer_name = analyzer_name
+        self.reset = reset
 
     def create_analyzer_dict(self, data_dict):
         analyzer_dict = dict()
@@ -45,7 +47,7 @@ class Analyzer(InputParamLogger):
         num_shots = data_dict['num_shots']
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
-            if shot_key not in analyzer_dict['results']:
+            if shot_key not in analyzer_dict['results'] or self.reset:
                 qprint(f'analyzing {shot_key}', quiet=quiet)
                 results_dict = self.analyze_shot(shot_num, datamodel)
                 analyzer_dict['results'][shot_key] = results_dict
@@ -62,8 +64,8 @@ class CountsAnalyzer(Analyzer):
         COUNTS = 'counts'
     analyzer_type = 'CountsAnalyzer'
 
-    def __init__(self, *, datastream_name, frame_name, roi_slice, analyzer_name):
-        super(CountsAnalyzer, self).__init__(analyzer_name=analyzer_name)
+    def __init__(self, *, datastream_name, frame_name, roi_slice, analyzer_name, reset):
+        super(CountsAnalyzer, self).__init__(analyzer_name=analyzer_name, reset=reset)
         self.datastream_name = datastream_name
         self.frame_name = frame_name
         self.roi_slice = roi_slice
@@ -109,8 +111,8 @@ class AbsorptionAnalyzer(Analyzer):
     def __init__(self, *, datastream_name, atom_frame_name,
                  bright_frame_name, dark_frame_name,
                  atom_dict, imaging_system_dict,
-                 roi_slice, calc_high_sat, analyzer_name):
-        super(AbsorptionAnalyzer, self).__init__(analyzer_name=analyzer_name)
+                 roi_slice, calc_high_sat, analyzer_name, reset):
+        super(AbsorptionAnalyzer, self).__init__(analyzer_name=analyzer_name, reset=reset)
         if imaging_system_dict is None:
             imaging_system_dict = side_imaging_dict
         if atom_dict is None:
@@ -228,8 +230,8 @@ class HetDemodulationAnalyzer(Analyzer):
     analyzer_type = 'HetDemodulationAnalyzer'
 
     def __init__(self, *, datastream_name, channel_name, segment_name, sample_period, carrier_frequency,
-                 bandwidth, downsample_rate, analyzer_name):
-        super(HetDemodulationAnalyzer, self).__init__(analyzer_name=analyzer_name)
+                 bandwidth, downsample_rate, analyzer_name, reset):
+        super(HetDemodulationAnalyzer, self).__init__(analyzer_name=analyzer_name, reset=reset)
         self.datastream_name = datastream_name
         self.channel_name = channel_name
         self.segment_name = segment_name
@@ -291,3 +293,22 @@ class HetDemodulationAnalyzer(Analyzer):
         A_xr = xr.DataArray(A_sig, dims=['time'], coords={'time': time_data})
         phi_xr = xr.DataArray(phi_sig, dims=['time'], coords={'time': time_data})
         return I_xr, Q_xr, A_xr, phi_xr, time_data
+
+
+class AbsorptionGaussianFitAnalyzer(Analyzer):
+    class OutputKey(Enum):
+        GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
+
+    analyzer_type = 'AbsorptionGaussianFitAnalyzer'
+
+    def __init__(self, *, data_source_analyzer_name, analyzer_name, reset):
+        super(AbsorptionGaussianFitAnalyzer, self).__init__(analyzer_name=analyzer_name, reset=reset)
+        self.data_source_analyzer_name = data_source_analyzer_name
+
+    def analyze_shot(self, shot_num, datamodel):
+        data_dict = datamodel.data_dict
+        shot_key = f'shot-{shot_num:d}'
+        frame = data_dict['analyzers'][self.data_source_analyzer_name]['results'][shot_key]['absorption_image']
+        fit_struct = fit_gaussian2d(frame, show_plot=False, save_name=None, quiet=True)
+        results_dict = {self.OutputKey.GAUSSIAN_FIT_STRUCT.value: fit_struct}
+        return results_dict

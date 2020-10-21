@@ -8,23 +8,24 @@ from uncertainties import ufloat
 import matplotlib.pyplot as plt
 
 
-def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, A=1, offset=0, angle=0, x_slope=0, y_slope=0):
+def gaussian_2d(x, y, x0=0, y0=0, sx=1, sy=1, amp=1, offset=0, angle=0, x_slope=0, y_slope=0):
     angle_rad = np.radians(angle)
     rx = np.cos(angle_rad) * (x - x0) + np.sin(angle_rad) * (y - y0)
     ry = -np.sin(angle_rad) * (x - x0) + np.cos(angle_rad) * (y - y0)
-    return A * np.exp(-(1/2) * ((rx/sx)**2 + ((ry/sy)**2))) + offset + x_slope * (x-x0) + y_slope * (y-y0)
+    return (amp * np.exp(-(1 / 2) * ((rx / sx) ** 2 + ((ry / sy) ** 2)))
+            + offset + x_slope * (x - x0) + y_slope * (y - y0))
 
 
 def img_moments(img):
     y_inds, x_inds = np.indices(img.shape)
-    tot = img.sum()
+    tot = np.nansum(img)
     if tot <= 0:
         raise ValueError('Integrated image intensity is negative, image may be too noisy. '
                          'Image statistics cannot be calculated.')
-    x0 = np.sum(img*x_inds)/tot
-    y0 = np.sum(img*y_inds)/tot
-    varx = np.sum(img * (x_inds - x0)**2) / tot
-    vary = np.sum(img * (y_inds - y0)**2) / tot
+    x0 = np.nansum(img*x_inds)/tot
+    y0 = np.nansum(img*y_inds)/tot
+    varx = np.nansum(img * (x_inds - x0)**2) / tot
+    vary = np.nansum(img * (y_inds - y0)**2) / tot
     if varx <= 0 or vary <= 0:
         raise ValueError('varx or vary is negative, image may be too noisy. '
                          'Image statistics cannot be calculated.')
@@ -34,11 +35,10 @@ def img_moments(img):
 
 
 def get_guess_values(img, quiet=True):
-    # Get fit guess values
     x_range = img.shape[1]
     y_range = img.shape[0]
-    A_guess = img.max()-img.min()
-    B_guess = img.min()
+    amp_guess = np.nanmax(img) - np.nanmin(img)
+    offset_guess = np.nanmin(img)
     try:
         x0_guess, y0_guess, sx_guess, sy_guess = img_moments(img)
     except ValueError as e:
@@ -46,7 +46,7 @@ def get_guess_values(img, quiet=True):
             print(e)
             print('Using default guess values.')
         x0_guess, y0_guess, sx_guess, sy_guess = [x_range/2, y_range/2, x_range/2, y_range/2]
-    p_guess = np.array([x0_guess, y0_guess, sx_guess, sy_guess, A_guess, B_guess])
+    p_guess = np.array([x0_guess, y0_guess, sx_guess, sy_guess, amp_guess, offset_guess])
     if not quiet:
         print(f'x0_guess = {x0_guess:.1f}')
         print(f'y0_guess = {y0_guess:.1f}')
@@ -164,7 +164,7 @@ def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
     fit_struct['cov'] = pcov
     fit_struct['data_img'] = img
     fit_struct['model_img'] = model_img
-    fit_struct['NGauss'] = fit_struct['A']['val'] * 2 * np.pi * fit_struct['sx']['val'] * fit_struct['sy']['val']
+    fit_struct['NGauss'] = fit_struct['amp']['val'] * 2 * np.pi * fit_struct['sx']['val'] * fit_struct['sy']['val']
     fit_struct['NSum'] = np.sum(img)
     # TODO: NSum_BGsubtract should subtract linear background as well if it was fitted for
     fit_struct['NSum_BGsubtract'] = np.sum(img - fit_struct['offset']['val'])
@@ -258,12 +258,15 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
     """
 
     img_downsampled = scipy.ndimage.interpolation.zoom(img, 1 / zoom)
+    zoom = 1.0
+    img_downsampled = np.nan_to_num(img)
+    img = np.nan_to_num(img)
     if not quiet:
         print(f'Image downsampled by factor: {zoom:.1f}')
     y_coords, x_coords = np.indices(img_downsampled.shape)
 
     p_guess = get_guess_values(img, quiet=quiet)
-    param_keys = ['x0', 'y0', 'sx', 'sy', 'A', 'offset']
+    param_keys = ['x0', 'y0', 'sx', 'sy', 'amp', 'offset']
     lock_params = dict()
     if fix_angle:
         lock_params['angle'] = 0
@@ -278,9 +281,9 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
         p_guess = np.append(p_guess, [0, 0])
 
     def img_cost_func(x):
-        return np.ravel(gaussian_2d(x_coords * zoom, y_coords * zoom,
-                                    *x, **lock_params)
-                        - img_downsampled)
+        return np.nan_to_num(np.ravel(gaussian_2d(x_coords * zoom, y_coords * zoom,
+                                                  *x, **lock_params)
+                             - img_downsampled))
     t_fit_start = time.time()
     lsq_struct = least_squares(img_cost_func, p_guess, verbose=0)
     t_fit_stop = time.time()
