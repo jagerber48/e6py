@@ -153,41 +153,57 @@ class HetDemodSingleShotReporter(Reporter):
 
     # noinspection PyPep8Naming
     def report(self, datamodel):
+        data_dict = datamodel.data_dict
+        run_name = data_dict['run_name']
+
         shot_key = f'shot-{self.shot_num:d}'
-        atom_h5file = (datamodel.data_dict['shot_processors'][self.atom_het_demod_processor]
+        atom_h5file = (data_dict['shot_processors'][self.atom_het_demod_processor]
                        ['results'][shot_key]['result_file_path'])
-        ref_h5file = (datamodel.data_dict['shot_processors'][self.ref_het_demod_processor]
+        ref_h5file = (data_dict['shot_processors'][self.ref_het_demod_processor]
                       ['results'][shot_key]['result_file_path'])
         with h5py.File(atom_h5file, 'r') as atom_file:
             with h5py.File(ref_h5file, 'r') as ref_file:
-                t = atom_file['time_series'][:]
+                t = atom_file['time_series']
                 if self.t_start is None:
                     self.t_start = t[0]
                 if self.t_stop is None:
                     self.t_stop = t[-1]
                 mask = np.logical_and(self.t_start < t, t < self.t_stop)
-                t = t[mask]
+                t = t[mask] * 1e3
 
+                fig = plt.figure(figsize=(12, 12))
+
+                ax_A_het = fig.add_subplot(2, 2, 1)
                 atom_A_het = (atom_file['A_het'][mask])
                 ref_A_het = (ref_file['A_het'][mask])
-                plt.plot(t, atom_A_het)
-                plt.plot(t, ref_A_het)
-                plt.show()
+                ax_A_het.plot(t, atom_A_het)
+                ax_A_het.plot(t, ref_A_het)
+                ax_A_het.set_title('Amplitude')
 
+                ax_phi_het = fig.add_subplot(2, 2, 3)
                 atom_phi_het = (atom_file['phi_het'][mask])
                 ref_phi_het = (ref_file['phi_het'][mask])
-                plt.plot(t, np.unwrap(atom_phi_het))
-                plt.plot(t, np.unwrap(ref_phi_het))
-                plt.show()
+                ax_phi_het.plot(t, np.unwrap(atom_phi_het) / np.pi)
+                ax_phi_het.plot(t, np.unwrap(ref_phi_het) / np.pi)
+                ax_phi_het.set_title(r'Phase ($\pi$)')
+                ax_phi_het.set_xlabel('Time (ms)')
 
+                ax_Q_het = fig.add_subplot(2, 2, 2)
                 atom_Q_het = (atom_file['Q_het'][mask])
                 ref_Q_het = (ref_file['Q_het'][mask])
-                plt.plot(t, atom_Q_het)
-                plt.plot(t, ref_Q_het)
-                plt.show()
+                ax_Q_het.plot(t, atom_Q_het)
+                ax_Q_het.plot(t, ref_Q_het)
+                ax_Q_het.set_title('Q-Quadrature')
 
+                ax_I_het = fig.add_subplot(2, 2, 4)
                 atom_I_het = (atom_file['I_het'][mask])
                 ref_I_het = (ref_file['I_het'][mask])
-                plt.plot(t, atom_I_het)
-                plt.plot(t, ref_I_het)
-                plt.show()
+                ax_I_het.plot(t, atom_I_het)
+                ax_I_het.plot(t, ref_I_het)
+                ax_I_het.legend(['With Atoms', 'No Atoms'])
+                ax_I_het.set_title('I-Quadrature')
+                ax_I_het.set_xlabel('Time (ms)')
+
+                figure_title = f'{self.reporter_name} - {run_name} - {shot_key}'
+                fig.suptitle(figure_title, fontsize=16)
+                fig.tight_layout(rect=[0, 0.03, 1, 0.95])
