@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+import h5py
 from .datamodel import dataset_from_keychain
 
 
@@ -29,8 +30,10 @@ class AtomRefCountsReporter(Reporter):
             atom_data = []
             ref_data = []
             for shot in shot_list:
-                atom_counts = data_dict['shot_processors'][self.atom_counts_processor_name]['results'][f'shot-{shot}']['counts']
-                ref_counts = data_dict['shot_processors'][self.ref_counts_processor_name]['results'][f'shot-{shot}']['counts']
+                atom_counts = (data_dict['shot_processors'][self.atom_counts_processor_name]
+                                        ['results'][f'shot-{shot}']['counts'])
+                ref_counts = (data_dict['shot_processors'][self.ref_counts_processor_name]
+                                       ['results'][f'shot-{shot}']['counts'])
                 atom_data.append(atom_counts)
                 ref_data.append(ref_counts)
             fig = plt.figure(figsize=(12, 12))
@@ -136,3 +139,55 @@ class AvgRndmImgReporter(Reporter):
             fig.savefig(save_file_path)
 
         plt.show()
+
+
+class HetDemodSingleShotReporter(Reporter):
+    def __init__(self, *, reporter_name, atom_het_demod_processor, ref_het_demod_processor, shot_num,
+                 t_start=None, t_stop=None):
+        super(HetDemodSingleShotReporter, self).__init__(reporter_name=reporter_name)
+        self.atom_het_demod_processor = atom_het_demod_processor
+        self.ref_het_demod_processor = ref_het_demod_processor
+        self.shot_num = shot_num
+        self.t_start = t_start
+        self.t_stop = t_stop
+
+    # noinspection PyPep8Naming
+    def report(self, datamodel):
+        shot_key = f'shot-{self.shot_num:d}'
+        atom_h5file = (datamodel.data_dict['shot_processors'][self.atom_het_demod_processor]
+                       ['results'][shot_key]['result_file_path'])
+        ref_h5file = (datamodel.data_dict['shot_processors'][self.ref_het_demod_processor]
+                      ['results'][shot_key]['result_file_path'])
+        with h5py.File(atom_h5file, 'r') as atom_file:
+            with h5py.File(ref_h5file, 'r') as ref_file:
+                t = atom_file['time_series'][:]
+                if self.t_start is None:
+                    self.t_start = t[0]
+                if self.t_stop is None:
+                    self.t_stop = t[-1]
+                mask = np.logical_and(self.t_start < t, t < self.t_stop)
+                t = t[mask]
+
+                atom_A_het = (atom_file['A_het'][mask])
+                ref_A_het = (ref_file['A_het'][mask])
+                plt.plot(t, atom_A_het)
+                plt.plot(t, ref_A_het)
+                plt.show()
+
+                atom_phi_het = (atom_file['phi_het'][mask])
+                ref_phi_het = (ref_file['phi_het'][mask])
+                plt.plot(t, np.unwrap(atom_phi_het))
+                plt.plot(t, np.unwrap(ref_phi_het))
+                plt.show()
+
+                atom_Q_het = (atom_file['Q_het'][mask])
+                ref_Q_het = (ref_file['Q_het'][mask])
+                plt.plot(t, atom_Q_het)
+                plt.plot(t, ref_Q_het)
+                plt.show()
+
+                atom_I_het = (atom_file['I_het'][mask])
+                ref_I_het = (ref_file['I_het'][mask])
+                plt.plot(t, atom_I_het)
+                plt.plot(t, ref_I_het)
+                plt.show()
