@@ -32,6 +32,9 @@ class Processor(InputParamLogger):
     def create_processor_dict(self, data_dict):
         processor_dict = dict()
         processor_dict['input_param_dict'] = self.input_param_dict
+        processor_dict['weight'] = self.processor_weight
+        processor_dict['scale'] = self.processor_scale
+        processor_dict['type'] = self.processor_type
         processor_dict['results'] = dict()
         data_dict[f'{self.processor_scale}_processors'][self.processor_name] = processor_dict
         return processor_dict
@@ -98,128 +101,127 @@ class PointProcessor(Processor):
         raise NotImplementedError
 
 
-
-
-
-
-class PointProcessor(InputParamLogger):
-    class OutputKey(Enum):
-        pass
-
-    @property
-    def aggregator_type(self):
-        raise NotImplementedError
-
-    def __init__(self, *, aggregator_name):
-        self.aggregator_name = aggregator_name
-
-    def create_aggregator_dict(self, data_dict):
-        aggregator_dict = dict()
-        aggregator_dict['input_param_dict'] = self.input_param_dict
-        aggregator_dict['results'] = dict()
-        data_dict['aggregators'][self.aggregator_name] = aggregator_dict
-        return aggregator_dict
-
-    def check_data_dict(self, data_dict):
-        if self.aggregator_name in data_dict['aggregators']:
-            aggregator_dict = data_dict['aggregators'][self.aggregator_name]
-            old_input_param_dict = aggregator_dict['input_param_dict']
-            if self.input_param_dict != old_input_param_dict:
-                aggregator_dict = self.create_aggregator_dict(data_dict)
-        else:
-            aggregator_dict = self.create_aggregator_dict(data_dict)
-        return aggregator_dict
-
-    def aggregate_run(self, datamodel, quiet=False):
-        qprint(f'Running {self.aggregator_name} aggregation...', quiet=quiet)
-        data_dict = datamodel.data_dict
-        aggregator_dict = self.check_data_dict(data_dict)
-
-        num_points = data_dict['num_points']
-        for point in range(num_points):
-            point_key = f'point-{point:d}'
-            try:
-                old_aggregated_shots = list(aggregator_dict['results'][point_key]['aggregated_shots'])
-            except KeyError:
-                old_aggregated_shots = []
-            shots_to_be_aggregated = list(data_dict['shot_list'][point_key])
-            if shots_to_be_aggregated != old_aggregated_shots:
-                qprint(f'aggregating {point_key}', quiet=quiet)
-                results_dict = self.aggregate_point(point, datamodel)
-                aggregator_dict['results'][point_key] = results_dict
-                aggregator_dict['results'][point_key]['aggregated_shots'] = shots_to_be_aggregated
-                data_dict.save_dict(quiet=True)
-            else:
-                qprint(f'skipping {point_key} aggregation', quiet=quiet)
-
-    def aggregate_point(self, point, datamodel):
-        raise NotImplementedError
+# class PointProcessor(InputParamLogger):
+#     class OutputKey(Enum):
+#         pass
+#
+#     @property
+#     def aggregator_type(self):
+#         raise NotImplementedError
+#
+#     def __init__(self, *, aggregator_name):
+#         self.aggregator_name = aggregator_name
+#
+#     def create_aggregator_dict(self, data_dict):
+#         aggregator_dict = dict()
+#         aggregator_dict['input_param_dict'] = self.input_param_dict
+#         aggregator_dict['results'] = dict()
+#         data_dict['aggregators'][self.aggregator_name] = aggregator_dict
+#         return aggregator_dict
+#
+#     def check_data_dict(self, data_dict):
+#         if self.aggregator_name in data_dict['aggregators']:
+#             aggregator_dict = data_dict['aggregators'][self.aggregator_name]
+#             old_input_param_dict = aggregator_dict['input_param_dict']
+#             if self.input_param_dict != old_input_param_dict:
+#                 aggregator_dict = self.create_aggregator_dict(data_dict)
+#         else:
+#             aggregator_dict = self.create_aggregator_dict(data_dict)
+#         return aggregator_dict
+#
+#     def aggregate_run(self, datamodel, quiet=False):
+#         qprint(f'Running {self.aggregator_name} aggregation...', quiet=quiet)
+#         data_dict = datamodel.data_dict
+#         aggregator_dict = self.check_data_dict(data_dict)
+#
+#         num_points = data_dict['num_points']
+#         for point in range(num_points):
+#             point_key = f'point-{point:d}'
+#             try:
+#                 old_aggregated_shots = list(aggregator_dict['results'][point_key]['aggregated_shots'])
+#             except KeyError:
+#                 old_aggregated_shots = []
+#             shots_to_be_aggregated = list(data_dict['shot_list'][point_key])
+#             if shots_to_be_aggregated != old_aggregated_shots:
+#                 qprint(f'aggregating {point_key}', quiet=quiet)
+#                 results_dict = self.aggregate_point(point, datamodel)
+#                 aggregator_dict['results'][point_key] = results_dict
+#                 aggregator_dict['results'][point_key]['aggregated_shots'] = shots_to_be_aggregated
+#                 data_dict.save_dict(quiet=True)
+#             else:
+#                 qprint(f'skipping {point_key} aggregation', quiet=quiet)
+#
+#     def aggregate_point(self, point, datamodel):
+#         raise NotImplementedError
 
 
 class MeanStdPointProcessor(PointProcessor):
-    aggregator_type = 'MeanStdAggregator'
+    processor_type = 'MeanStdPointProcessor'
 
-    def __init__(self, *, aggregator_name):
-        super(MeanStdPointProcessor, self).__init__(aggregator_name=aggregator_name)
+    def __init__(self, *, processor_name, source_processor_name):
+        super(MeanStdPointProcessor, self).__init__(processor_name=processor_name)
+        self.source_processor_name = source_processor_name
 
-    def aggregate_point(self, point, datamodel):
+    def process_point(self, point, datamodel):
         data_dict = datamodel.data_dict
         point_key = f'point-{point:d}'
-
         shot_list = data_dict['shot_list'][point_key]
         num_loops = data_dict['loop_nums'][point_key]
 
-        aggregation_dict = dict()
+        source_processor_dict = data_dict['shot_processors'][self.source_processor_name]
+        source_processor_name = source_processor_dict['input_param_dict']['kwargs']['processor_name']
+        source_processor_results_dict = source_processor_dict['results']
 
-        for analyzer_dict in data_dict['analyzers'].values():
-            analyzer_name = analyzer_dict['input_param_dict']['kwargs']['analyzer_name']
-            aggregation_dict[analyzer_name] = dict()
-            results_dict = analyzer_dict['results']
+        results_dict = dict()
+        results_dict[source_processor_name] = dict()
 
-            # get the keys for the results corresponding to the first shot
-            results_keys = next(iter(results_dict.values()))
+        # get the keys for the results corresponding to the first shot
+        first_shot_dict = next(iter(source_processor_results_dict.values()))
 
-            for key in results_keys:
-                avg_value = None
-                for shot in shot_list:
-                    shot_key = f'shot-{shot}'
-                    value = results_dict[shot_key][key]
-                    if avg_value is None:
-                        avg_value = value / num_loops
-                    else:
-                        avg_value += value / num_loops
+        for key in first_shot_dict.keys():
+            avg_value = None
+            for shot in shot_list:
+                shot_key = f'shot-{shot}'
+                value = source_processor_results_dict[shot_key][key]
+                if avg_value is None:
+                    avg_value = value / num_loops
+                else:
+                    avg_value += value / num_loops
 
-                std_value = None
-                for shot in shot_list:
-                    shot_key = f'shot-{shot}'
-                    value = results_dict[shot_key][key]
-                    if std_value is None:
-                        std_value = (value - avg_value)**2 / (num_loops - 1)
-                    else:
-                        std_value += (value - avg_value)**2 / (num_loops - 1)
+            std_value = None
+            for shot in shot_list:
+                shot_key = f'shot-{shot}'
+                value = source_processor_results_dict[shot_key][key]
+                if std_value is None:
+                    std_value = (value - avg_value)**2 / (num_loops - 1)
+                else:
+                    std_value += (value - avg_value)**2 / (num_loops - 1)
 
-                aggregation_dict[analyzer_name][key] = dict()
-                aggregation_dict[analyzer_name][key]['mean'] = avg_value
-                aggregation_dict[analyzer_name][key]['std'] = std_value
+            results_dict[source_processor_results_dict][key] = dict()
+            results_dict[source_processor_results_dict][key]['mean'] = avg_value
+            results_dict[source_processor_results_dict][key]['std'] = std_value
 
-        return aggregation_dict
+        return results_dict
 
 
 class AvgAtomRefImagePointProcessor(PointProcessor):
     class OutputKey(Enum):
         AVERAGE_ATOM_IMG = 'avg_atom_img'
         AVERAGE_REF_IMG = 'avg_ref_img'
-    aggregator_type = 'AvgAtomRefImageAggregator'
+
+    processor_weight = ProcessorWeight.LIGHT
+    processor_scale = ProcessorScale.POINT
+    processor_type = 'AvgAtomRefImagePointProcessor'
 
     def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
-                 aggregator_name):
-        super(AvgAtomRefImagePointProcessor, self).__init__(aggregator_name=aggregator_name)
+                 processor_name):
+        super(AvgAtomRefImagePointProcessor, self).__init__(processor_name=processor_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
         self.roi_slice = roi_slice
 
-    def aggregate_point(self, point, datamodel):
+    def process_point(self, point, datamodel):
         data_dict = datamodel.data_dict
         point_key = f'point-{point:d}'
         datastream = datamodel.datastream_dict[self.datastream_name]
@@ -250,18 +252,19 @@ class RandomAtomRefImagePointProcessor(PointProcessor):
         RANDOM_ATOM_IMG = 'random_atom_img'
         RANDOM_REF_IMG = 'random_ref_img'
         RANDOM_SHOT_NUM = 'random_shot_num'
-
-    aggregator_type = 'RandomAtomRefImageAggregator'
+    processor_weight = ProcessorWeight.LIGHT
+    processor_scale = ProcessorScale.POINT
+    processor_type = 'RandomAtomRefImagePointProcessor'
 
     def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
-                 aggregator_name):
-        super(RandomAtomRefImagePointProcessor, self).__init__(aggregator_name=aggregator_name)
+                 processor_name):
+        super(RandomAtomRefImagePointProcessor, self).__init__(processor_name=processor_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
         self.roi_slice = roi_slice
 
-    def aggregate_point(self, point, datamodel):
+    def process_point(self, point, datamodel):
         datastream = datamodel.datastream_dict[self.datastream_name]
         random_atom_frame = None
         random_ref_frame = None
