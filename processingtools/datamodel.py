@@ -140,6 +140,9 @@ class DataModel:
         print_dict_tree(self.data_dict, level=0)
 
     def set_shot_lists(self):
+        if 'num_points' in self.data_dict:
+            if self.data_dict['num_points'] != self.num_points:
+                self.data_dict['point_processors'] = dict()
         self.data_dict['num_points'] = self.num_points
         self.data_dict['num_shots'] = self.num_shots
         self.data_dict['shot_list'] = dict()

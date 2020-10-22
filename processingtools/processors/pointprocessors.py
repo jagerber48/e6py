@@ -36,60 +36,6 @@ class PointProcessor(Processor):
         raise NotImplementedError
 
 
-# class PointProcessor(InputParamLogger):
-#     class OutputKey(Enum):
-#         pass
-#
-#     @property
-#     def aggregator_type(self):
-#         raise NotImplementedError
-#
-#     def __init__(self, *, aggregator_name):
-#         self.aggregator_name = aggregator_name
-#
-#     def create_aggregator_dict(self, data_dict):
-#         aggregator_dict = dict()
-#         aggregator_dict['input_param_dict'] = self.input_param_dict
-#         aggregator_dict['results'] = dict()
-#         data_dict['aggregators'][self.aggregator_name] = aggregator_dict
-#         return aggregator_dict
-#
-#     def check_data_dict(self, data_dict):
-#         if self.aggregator_name in data_dict['aggregators']:
-#             aggregator_dict = data_dict['aggregators'][self.aggregator_name]
-#             old_input_param_dict = aggregator_dict['input_param_dict']
-#             if self.input_param_dict != old_input_param_dict:
-#                 aggregator_dict = self.create_aggregator_dict(data_dict)
-#         else:
-#             aggregator_dict = self.create_aggregator_dict(data_dict)
-#         return aggregator_dict
-#
-#     def aggregate_run(self, datamodel, quiet=False):
-#         qprint(f'Running {self.aggregator_name} aggregation...', quiet=quiet)
-#         data_dict = datamodel.data_dict
-#         aggregator_dict = self.check_data_dict(data_dict)
-#
-#         num_points = data_dict['num_points']
-#         for point in range(num_points):
-#             point_key = f'point-{point:d}'
-#             try:
-#                 old_aggregated_shots = list(aggregator_dict['results'][point_key]['aggregated_shots'])
-#             except KeyError:
-#                 old_aggregated_shots = []
-#             shots_to_be_aggregated = list(data_dict['shot_list'][point_key])
-#             if shots_to_be_aggregated != old_aggregated_shots:
-#                 qprint(f'aggregating {point_key}', quiet=quiet)
-#                 results_dict = self.aggregate_point(point, datamodel)
-#                 aggregator_dict['results'][point_key] = results_dict
-#                 aggregator_dict['results'][point_key]['aggregated_shots'] = shots_to_be_aggregated
-#                 data_dict.save_dict(quiet=True)
-#             else:
-#                 qprint(f'skipping {point_key} aggregation', quiet=quiet)
-#
-#     def aggregate_point(self, point, datamodel):
-#         raise NotImplementedError
-
-
 class MeanStdPointProcessor(PointProcessor):
     class ResultKey(Enum):
         pass
