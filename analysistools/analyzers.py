@@ -4,13 +4,14 @@ from pathlib import Path
 import xarray as xr
 from scipy.signal import butter, filtfilt
 from scipy.constants import hbar
+from scipy.interpolate import interp1d
 from enum import Enum
 from .imagetools import get_image
 from .datamodel import InputParamLogger, qprint
 from ..smart_gaussian2d_fit import fit_gaussian2d
 
 
-class Analyzer(InputParamLogger):
+class ShotProcessor(InputParamLogger):
     class OutputKey(Enum):
         pass
 
@@ -60,13 +61,13 @@ class Analyzer(InputParamLogger):
         raise NotImplementedError
 
 
-class CountsAnalyzer(Analyzer):
+class CountsShotProcessor(ShotProcessor):
     class OutputKey(Enum):
         COUNTS = 'counts'
     analyzer_type = 'CountsAnalyzer'
 
     def __init__(self, *, datastream_name, frame_name, roi_slice, analyzer_name, reset):
-        super(CountsAnalyzer, self).__init__(analyzer_name=analyzer_name, reset=reset)
+        super(CountsShotProcessor, self).__init__(analyzer_name=analyzer_name, reset=reset)
         self.datastream_name = datastream_name
         self.frame_name = frame_name
         self.roi_slice = roi_slice
@@ -102,7 +103,7 @@ side_imaging_dict['pixel_area'] = 6.45e-6 ** 2
 side_imaging_dict['count_conversion'] = total_gain
 
 
-class AbsorptionAnalyzer(Analyzer):
+class AbsorptionShotProcessor(ShotProcessor):
     class OutputKey(Enum):
         ABSORPTION_IMAGE = 'absorption_image'
         OD_IMAGE = 'od_image'
@@ -113,7 +114,7 @@ class AbsorptionAnalyzer(Analyzer):
                  bright_frame_name, dark_frame_name,
                  atom_dict, imaging_system_dict,
                  roi_slice, calc_high_sat, analyzer_name, reset):
-        super(AbsorptionAnalyzer, self).__init__(analyzer_name=analyzer_name, reset=reset)
+        super(AbsorptionShotProcessor, self).__init__(analyzer_name=analyzer_name, reset=reset)
         if imaging_system_dict is None:
             imaging_system_dict = side_imaging_dict
         if atom_dict is None:
@@ -224,7 +225,7 @@ class AbsorptionAnalyzer(Analyzer):
 
 
 # noinspection PyPep8Naming
-class HetDemodulationAnalyzer(Analyzer):
+class HetDemodulationShotProcessor(ShotProcessor):
     class OutputKey(Enum):
         OUTPUT_FILE_PATH = 'output_file_path'
 
@@ -232,7 +233,7 @@ class HetDemodulationAnalyzer(Analyzer):
 
     def __init__(self, *, datastream_name, channel_name, segment_name, sample_period, carrier_frequency,
                  bandwidth, downsample_rate, analyzer_name, reset):
-        super(HetDemodulationAnalyzer, self).__init__(analyzer_name=analyzer_name, reset=reset)
+        super(HetDemodulationShotProcessor, self).__init__(analyzer_name=analyzer_name, reset=reset)
         self.datastream_name = datastream_name
         self.channel_name = channel_name
         self.segment_name = segment_name
@@ -296,14 +297,14 @@ class HetDemodulationAnalyzer(Analyzer):
         return I_xr, Q_xr, A_xr, phi_xr, time_data
 
 
-class AbsorptionGaussianFitAnalyzer(Analyzer):
+class AbsorptionGaussianFitShotProcessor(ShotProcessor):
     class OutputKey(Enum):
         GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
 
     analyzer_type = 'AbsorptionGaussianFitAnalyzer'
 
     def __init__(self, *, data_source_analyzer_name, analyzer_name, reset):
-        super(AbsorptionGaussianFitAnalyzer, self).__init__(analyzer_name=analyzer_name, reset=reset)
+        super(AbsorptionGaussianFitShotProcessor, self).__init__(analyzer_name=analyzer_name, reset=reset)
         self.data_source_analyzer_name = data_source_analyzer_name
 
     def analyze_shot(self, shot_num, datamodel):
@@ -314,8 +315,37 @@ class AbsorptionGaussianFitAnalyzer(Analyzer):
         results_dict = {self.OutputKey.GAUSSIAN_FIT_STRUCT.value: fit_struct}
         return results_dict
 
-class CavSweepAnalyzer(Analyzer):
+class CavSweepShotProcessor(ShotProcessor):
     class OutputKey(Enum):
         GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
 
     analyzer_type = 'CavSweepAnalyzer'
+
+    def __init__(self, *, het_demod_analyzer_name, vco_channel_name, segment_name, analyzer_name):
+        super(CavSweepShotProcessor, self).__init__(analyzer_name=analyzer_name)
+        self.het_demod_analyzer_name = het_demod_analyzer_name
+        self.vco_channel_name = vco_channel_name
+        self.segment_name = segment_name
+
+    def analyze_shot(self, shot_num, datamodel):
+        shot_key = f'shot-{shot_num:d}'
+        data_dict = datamodel.data_dict
+        het_demod_analyzer_dict = data_dict['analyzers'][self.het_demod_analyzer_name]
+        het_demod_file_path = het_demod_analyzer_dict['results'][shot_key]['output_file_path']
+
+        time_data = h5py.File(het_demod_file_path, 'r')['time_series']
+        A_het = h5py.File(het_demod_file_path, 'r')['A_het']
+        interp_func = interp1d(time_data, time_data)
+
+        vco_datastream_name = (het_demod_analyzer_dict['input_param_dict']['kwargs']['datastream_name'])
+        datastream = datamodel.datastream_dict[vco_datastream_name]
+        raw_het_file_path = datastream.get_file_path(shot_num)
+
+        vco_trace = h5py.File(file_path, 'r')[self.vco_channel_name][self.segment_name]
+        freq_trace = self.vco_v_to_f(vco_trace)
+
+    @staticmethod
+    def vco_v_to_f(volt):
+        # Calibration taken from
+        freq = 2 * (62.970 * volt + 42.014)
+        return freq

@@ -19,7 +19,7 @@ def make_fit_param_dict(name, val, std, conf_level=erf(1 / np.sqrt(2)), dof=None
 
 
 def create_fit_struct(fit_func, input_data, output_data, popt_dict, pcov, conf_level, dof):
-    model_data = fit_func(input_data, **popt_dict)
+    model_data = fit_func(*input_data, *popt_dict.values())
     fit_struct = dict()
     fit_struct_param_keys = []
     for i, key in enumerate(popt_dict.keys()):
@@ -34,26 +34,31 @@ def create_fit_struct(fit_func, input_data, output_data, popt_dict, pcov, conf_l
     return fit_struct
 
 
-def e6_fit(output_data, fit_func, param_guess, input_data=None, param_keys=None, conf_level=erf(1 / np.sqrt(2)),
+def e6_fit(output_data, fit_func, param_guess, input_data, param_keys=None, conf_level=erf(1 / np.sqrt(2)),
            *args, **kwargs):
+    """
+    Perform fit to output_data using fit_func. output_data is modeled by
+    output_data ~ fit_func(*input_data, *param_guess). For example, if output_data is a 100x100 array then
+    input_data should be a list which contains two 100x100 arrays indicating the 0th, and 1st coordinates of each
+    datapoint. If output_data is 1 dimensional of length N then input_data should be a list containing one element
+    of length N.
+    """
     if param_keys is None:
         param_keys = []
         for idx, param in enumerate(param_guess):
             param_keys.append(f'fit_param_{idx}')
 
-    if input_data is None:
-        input_data = np.indices(output_data.shape)
     output_data = np.nan_to_num(output_data)
 
     def img_cost_func(fit_params):
-        return np.nan_to_num(np.ravel(fit_func(input_data, *fit_params) - output_data))
+        return np.nan_to_num(np.ravel(fit_func(*input_data, *fit_params) - output_data))
 
     lsq_struct = least_squares(img_cost_func, param_guess, verbose=0, *args, **kwargs)
-
     popt = lsq_struct['x']
-    popt_dict = dict(zip(param_keys, popt))
     jac = lsq_struct['jac']
     cost = lsq_struct['cost']
+
+    popt_dict = dict(zip(param_keys, popt))
 
     n_data_points = np.prod(output_data.shape)
     n_fit_parameters = len(popt_dict)
@@ -75,13 +80,16 @@ def lorentzian_fit_function(x, delta_f, f0, amplitude, offset):
     return amplitude * (delta_f_hwhm**2) / (delta_f_hwhm**2 + detuning**2) + offset
 
 
-def lor_fit(x_data, y_data, param_guess=(1, 0, 1, 0), x_label='Frequency', y_label='Signal', x_units='Hz', y_units='a.u.',
-            quiet=False):
+def lor_fit(x_data, y_data, param_guess=(1, 0, 1, 0), x_label='Frequency', y_label='Signal',
+            x_units='Hz', y_units='a.u.', quiet=False):
     # TODO: Return error bars
     param_keys = ['delta_f', 'f0', 'amplitude', 'offset']
-    fit_struct = e6_fit(y_data, lorentzian_fit_function, input_data=x_data, param_guess=param_guess, param_keys=param_keys)
+    fit_struct = e6_fit(output_data=y_data,
+                        fit_func=lorentzian_fit_function,
+                        input_data=[x_data],
+                        param_guess=param_guess,
+                        param_keys=param_keys)
     popt = [fit_struct[key]['val'] for key in fit_struct['param_keys']]
-    pcov = fit_struct['cov']
     if not quiet:
         print(f'Linewidth (FWHM) = {popt[0]:.2f} {x_units}')
         print(f'Center Frequency = {popt[1]:.2f} {x_units}')
