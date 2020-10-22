@@ -4,80 +4,56 @@ from pathlib import Path
 import xarray as xr
 from scipy.signal import butter, filtfilt
 from scipy.constants import hbar
-from scipy.interpolate import interp1d
+# from scipy.interpolate import interp1d
 from enum import Enum
-from .imagetools import get_image
-from .datamodel import InputParamLogger, qprint
-from ..smart_gaussian2d_fit import fit_gaussian2d
+from analysistools.imagetools import get_image
+from analysistools.datamodel import qprint
+from .processor import Processor, ProcessorWeight, ProcessorScale
+from smart_gaussian2d_fit import fit_gaussian2d
 
 
-class ShotProcessor(InputParamLogger):
-    class OutputKey(Enum):
+class ShotProcessor(Processor):
+    class ResultKey(Enum):
         pass
 
-    @property
-    def analyzer_type(self):
-        raise NotImplementedError
-
-    def __init__(self, *, analyzer_name, reset):
-        self.analyzer_name = analyzer_name
+    def __init__(self, *, name, weight, reset):
+        super(ShotProcessor, self).__init__(name=name, weight=weight, scale=ProcessorScale.SHOT)
         self.reset = reset
-        self.input_param_dict['analyzer_type'] = self.analyzer_type
 
-    def create_analyzer_dict(self, data_dict):
-        analyzer_dict = dict()
-        analyzer_dict['input_param_dict'] = self.input_param_dict
-        analyzer_dict['results'] = dict()
-        data_dict['analyzers'][self.analyzer_name] = analyzer_dict
-        return analyzer_dict
-
-    def check_data_dict(self, data_dict):
-        if self.analyzer_name in data_dict['analyzers']:
-            analyzer_dict = data_dict['analyzers'][self.analyzer_name]
-            old_input_param_dict = analyzer_dict['input_param_dict']
-            if self.input_param_dict != old_input_param_dict:
-                analyzer_dict = self.create_analyzer_dict(data_dict)
-        else:
-            analyzer_dict = self.create_analyzer_dict(data_dict)
-        return analyzer_dict
-
-    def analyze_run(self, datamodel, quiet=False):
-        qprint(f'Running {self.analyzer_name} analysis...', quiet=quiet)
+    def scaled_process(self, datamodel, processor_dict, quiet=False):
         data_dict = datamodel.data_dict
-        analyzer_dict = self.check_data_dict(data_dict)
 
         num_shots = data_dict['num_shots']
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
-            if shot_key not in analyzer_dict['results'] or self.reset:
-                qprint(f'analyzing {shot_key}', quiet=quiet)
-                results_dict = self.analyze_shot(shot_num, datamodel)
-                analyzer_dict['results'][shot_key] = results_dict
+            if shot_key not in processor_dict['results'] or self.reset:
+                qprint(f'processing {shot_key}', quiet=quiet)
+                results_dict = self.process_shot(shot_num, datamodel)
+                processor_dict['results'][shot_key] = results_dict
                 data_dict.save_dict(quiet=True)
             else:
-                qprint(f'skipping {shot_key} analysis', quiet=quiet)
+                qprint(f'skipping processing {shot_key}', quiet=quiet)
 
-    def analyze_shot(self, shot_num, datamodel):
+    def process_shot(self, shot_num, datamodel):
         raise NotImplementedError
 
 
 class CountsShotProcessor(ShotProcessor):
-    class OutputKey(Enum):
+    class ResultKey(Enum):
         COUNTS = 'counts'
-    analyzer_type = 'CountsAnalyzer'
 
-    def __init__(self, *, datastream_name, frame_name, roi_slice, analyzer_name, reset):
-        super(CountsShotProcessor, self).__init__(analyzer_name=analyzer_name, reset=reset)
+    def __init__(self, *, datastream_name, frame_name, roi_slice, name, reset):
+        super(CountsShotProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT, reset=reset)
         self.datastream_name = datastream_name
         self.frame_name = frame_name
         self.roi_slice = roi_slice
 
-    def analyze_shot(self, shot_num, datamodel):
+    def process_shot(self, shot_num, datamodel):
         datastream = datamodel.datastream_dict[self.datastream_name]
         file_path = datastream.get_file_path(shot_num)
         frame = get_image(file_path, self.frame_name, roi_slice=self.roi_slice)
         counts = np.nansum(frame)
-        results_dict = {self.OutputKey.COUNTS.value: counts}
+        results_dict = {self.ResultKey.COUNTS.value: counts}
         return results_dict
 
 
@@ -104,17 +80,13 @@ side_imaging_dict['count_conversion'] = total_gain
 
 
 class AbsorptionShotProcessor(ShotProcessor):
-    class OutputKey(Enum):
+    class ResultKey(Enum):
         ABSORPTION_IMAGE = 'absorption_image'
         OD_IMAGE = 'od_image'
 
-    analyzer_type = 'AbsorptionAnalyzer'
-
-    def __init__(self, *, datastream_name, atom_frame_name,
-                 bright_frame_name, dark_frame_name,
-                 atom_dict, imaging_system_dict,
-                 roi_slice, calc_high_sat, analyzer_name, reset):
-        super(AbsorptionShotProcessor, self).__init__(analyzer_name=analyzer_name, reset=reset)
+    def __init__(self, *, datastream_name, atom_frame_name, bright_frame_name, dark_frame_name,
+                 atom_dict, imaging_system_dict, roi_slice, calc_high_sat, name, reset):
+        super(AbsorptionShotProcessor, self).__init__(name=name, weight=ProcessorWeight.HEAVY, reset=reset)
         if imaging_system_dict is None:
             imaging_system_dict = side_imaging_dict
         if atom_dict is None:
@@ -137,7 +109,7 @@ class AbsorptionShotProcessor(ShotProcessor):
         self.magnification = self.imaging_system_dict['magnification']
         self.count_conversion = self.imaging_system_dict['count_conversion']
 
-    def analyze_shot(self, shot_num, datamodel):
+    def process_shot(self, shot_num, datamodel):
         datastream = datamodel.datastream_dict[self.datastream_name]
         file_path = datastream.get_file_path(shot_num)
         atom_frame = get_image(file_path, self.atom_frame_name, roi_slice=self.roi_slice)
@@ -145,8 +117,8 @@ class AbsorptionShotProcessor(ShotProcessor):
         dark_frame = get_image(file_path, self.dark_frame_name, roi_slice=self.roi_slice)
         od_frame, atom_frame = self.absorption_od_and_number(atom_frame, bright_frame, dark_frame)
         results_dict = dict()
-        results_dict[self.OutputKey.ABSORPTION_IMAGE.value] = atom_frame
-        results_dict[self.OutputKey.OD_IMAGE.value] = od_frame
+        results_dict[self.ResultKey.ABSORPTION_IMAGE.value] = atom_frame
+        results_dict[self.ResultKey.OD_IMAGE.value] = od_frame
         return results_dict
 
     def absorption_od_and_number(self, atom_frame, bright_frame, dark_frame):
@@ -226,14 +198,12 @@ class AbsorptionShotProcessor(ShotProcessor):
 
 # noinspection PyPep8Naming
 class HetDemodulationShotProcessor(ShotProcessor):
-    class OutputKey(Enum):
-        OUTPUT_FILE_PATH = 'output_file_path'
-
-    analyzer_type = 'HetDemodulationAnalyzer'
+    class ResultKey(Enum):
+        RESULT_FILE_PATH = 'result_file_path'
 
     def __init__(self, *, datastream_name, channel_name, segment_name, sample_period, carrier_frequency,
-                 bandwidth, downsample_rate, analyzer_name, reset):
-        super(HetDemodulationShotProcessor, self).__init__(analyzer_name=analyzer_name, reset=reset)
+                 bandwidth, downsample_rate, name, reset):
+        super(HetDemodulationShotProcessor, self).__init__(name=name, weight=ProcessorWeight.HEAVY, reset=reset)
         self.datastream_name = datastream_name
         self.channel_name = channel_name
         self.segment_name = segment_name
@@ -242,11 +212,11 @@ class HetDemodulationShotProcessor(ShotProcessor):
         self.bandwidth = bandwidth
         self.downsample_rate = downsample_rate
 
-    def analyze_shot(self, shot_num, datamodel):
+    def process_shot(self, shot_num, datamodel):
         datastream = datamodel.datastream_dict[self.datastream_name]
         file_path = datastream.get_file_path(shot_num)
         output_data_path = Path(datamodel.daily_path, 'analysis',
-                                datamodel.run_name, self.analyzer_name)
+                                datamodel.run_name, self.name)
         output_data_path.mkdir(parents=True, exist_ok=True)
         output_file_path = Path(output_data_path, f'het_analysis_{shot_num:05d}.h5')
 
@@ -267,7 +237,7 @@ class HetDemodulationShotProcessor(ShotProcessor):
             hf.create_dataset('time_series', data=time_series.astype('float'))
 
         results_dict = dict()
-        results_dict[self.OutputKey.OUTPUT_FILE_PATH.value] = output_file_path
+        results_dict[self.ResultKey.RESULT_FILE_PATH.value] = output_file_path
         return results_dict
 
     def butter_lowpass_filter(self, data, order):
@@ -298,54 +268,53 @@ class HetDemodulationShotProcessor(ShotProcessor):
 
 
 class AbsorptionGaussianFitShotProcessor(ShotProcessor):
-    class OutputKey(Enum):
+    class ResultKey(Enum):
         GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
 
-    analyzer_type = 'AbsorptionGaussianFitAnalyzer'
+    def __init__(self, *, source_processor_name, name, reset):
+        super(AbsorptionGaussianFitShotProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT, reset=reset)
+        self.source_processor_name = source_processor_name
 
-    def __init__(self, *, data_source_analyzer_name, analyzer_name, reset):
-        super(AbsorptionGaussianFitShotProcessor, self).__init__(analyzer_name=analyzer_name, reset=reset)
-        self.data_source_analyzer_name = data_source_analyzer_name
-
-    def analyze_shot(self, shot_num, datamodel):
+    def process_shot(self, shot_num, datamodel):
         data_dict = datamodel.data_dict
         shot_key = f'shot-{shot_num:d}'
-        frame = data_dict['analyzers'][self.data_source_analyzer_name]['results'][shot_key]['absorption_image']
+        frame = data_dict['shot_processors'][self.source_processor_name]['results'][shot_key]['absorption_image']
         fit_struct = fit_gaussian2d(frame, show_plot=False, save_name=None, quiet=True)
-        results_dict = {self.OutputKey.GAUSSIAN_FIT_STRUCT.value: fit_struct}
+        results_dict = {self.ResultKey.GAUSSIAN_FIT_STRUCT.value: fit_struct}
         return results_dict
 
-class CavSweepShotProcessor(ShotProcessor):
-    class OutputKey(Enum):
-        GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
 
-    analyzer_type = 'CavSweepAnalyzer'
-
-    def __init__(self, *, het_demod_analyzer_name, vco_channel_name, segment_name, analyzer_name):
-        super(CavSweepShotProcessor, self).__init__(analyzer_name=analyzer_name)
-        self.het_demod_analyzer_name = het_demod_analyzer_name
-        self.vco_channel_name = vco_channel_name
-        self.segment_name = segment_name
-
-    def analyze_shot(self, shot_num, datamodel):
-        shot_key = f'shot-{shot_num:d}'
-        data_dict = datamodel.data_dict
-        het_demod_analyzer_dict = data_dict['analyzers'][self.het_demod_analyzer_name]
-        het_demod_file_path = het_demod_analyzer_dict['results'][shot_key]['output_file_path']
-
-        time_data = h5py.File(het_demod_file_path, 'r')['time_series']
-        A_het = h5py.File(het_demod_file_path, 'r')['A_het']
-        interp_func = interp1d(time_data, time_data)
-
-        vco_datastream_name = (het_demod_analyzer_dict['input_param_dict']['kwargs']['datastream_name'])
-        datastream = datamodel.datastream_dict[vco_datastream_name]
-        raw_het_file_path = datastream.get_file_path(shot_num)
-
-        vco_trace = h5py.File(file_path, 'r')[self.vco_channel_name][self.segment_name]
-        freq_trace = self.vco_v_to_f(vco_trace)
-
-    @staticmethod
-    def vco_v_to_f(volt):
-        # Calibration taken from
-        freq = 2 * (62.970 * volt + 42.014)
-        return freq
+# class CavSweepShotProcessor(ShotProcessor):
+#     class OutputKey(Enum):
+#         GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
+#
+#     analyzer_type = 'CavSweepAnalyzer'
+#
+#     def __init__(self, *, het_demod_analyzer_name, vco_channel_name, segment_name, analyzer_name):
+#         super(CavSweepShotProcessor, self).__init__(analyzer_name=analyzer_name)
+#         self.het_demod_analyzer_name = het_demod_analyzer_name
+#         self.vco_channel_name = vco_channel_name
+#         self.segment_name = segment_name
+#
+#     def analyze_shot(self, shot_num, datamodel):
+#         shot_key = f'shot-{shot_num:d}'
+#         data_dict = datamodel.data_dict
+#         het_demod_analyzer_dict = data_dict['analyzers'][self.het_demod_analyzer_name]
+#         het_demod_file_path = het_demod_analyzer_dict['results'][shot_key]['result_file_path']
+#
+#         time_data = h5py.File(het_demod_file_path, 'r')['time_series']
+#         A_het = h5py.File(het_demod_file_path, 'r')['A_het']
+#         interp_func = interp1d(time_data, time_data)
+#
+#         vco_datastream_name = (het_demod_analyzer_dict['input_param_dict']['kwargs']['datastream_name'])
+#         datastream = datamodel.datastream_dict[vco_datastream_name]
+#         raw_het_file_path = datastream.get_file_path(shot_num)
+#
+#         vco_trace = h5py.File(file_path, 'r')[self.vco_channel_name][self.segment_name]
+#         freq_trace = self.vco_v_to_f(vco_trace)
+#
+#     @staticmethod
+#     def vco_v_to_f(volt):
+#         # Calibration taken from
+#         freq = 2 * (62.970 * volt + 42.014)
+#         return freq

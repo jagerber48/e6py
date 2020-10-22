@@ -1,81 +1,16 @@
 import numpy as np
 from enum import Enum
-from .imagetools import get_image
-from .datamodel import InputParamLogger, qprint
-
-
-class ProcessorWeight(Enum):
-    LIGHT = 'light'
-    HEAVY = 'heavy'
-
-
-class ProcessorScale(Enum):
-    SHOT = 'shot'
-    POINT = 'point'
-    RUN = 'run'
-
-
-class Processor(InputParamLogger):
-    class ResultKey(Enum):
-        pass
-
-    processor_weight = ProcessorWeight.LIGHT
-    processor_scale = ProcessorScale.SHOT
-
-    @property
-    def processor_type(self):
-        raise NotImplementedError
-
-    def __init__(self, *, processor_name):
-        self.processor_name = processor_name
-
-    def create_processor_dict(self, data_dict):
-        processor_dict = dict()
-        processor_dict['input_param_dict'] = self.input_param_dict
-        processor_dict['weight'] = self.processor_weight
-        processor_dict['scale'] = self.processor_scale
-        processor_dict['type'] = self.processor_type
-        processor_dict['results'] = dict()
-        data_dict[f'{self.processor_scale}_processors'][self.processor_name] = processor_dict
-        return processor_dict
-
-    def load_processor_dict(self, data_dict):
-        if self.processor_name in data_dict[f'{self.processor_scale}_processors']:
-            processor_dict = data_dict[f'{self.processor_scale}_processors'][self.processor_name]
-            old_input_param_dict = processor_dict['input_param_dict']
-            if self.input_param_dict != old_input_param_dict:
-                processor_dict = self.create_processor_dict(data_dict)
-        else:
-            processor_dict = self.create_processor_dict(data_dict)
-        return processor_dict
-
-    def process(self, datamodel, quiet=False):
-        qprint(f'**Running {self.processor_scale}_processor: {self.processor_name}**', quiet=quiet)
-        data_dict = datamodel.data_dict
-        processor_dict = self.load_processor_dict(data_dict)
-        self.scaled_process(datamodel, processor_dict, quiet=quiet)
-
-    def scaled_process(self, datamodel, processor_dict, quiet=False):
-        """
-        Subclasses will implement generic processing procedures depending on the scale of the Processor. For example
-        a ShotProcessor will loop through all shots while a PointProcessor will loop through all points.
-        """
-        raise NotImplementedError
+from ..imagetools import get_image
+from ..datamodel import qprint
+from .processor import Processor, ProcessorScale, ProcessorWeight
 
 
 class PointProcessor(Processor):
     class ResultKey(Enum):
         pass
 
-    processor_weight = ProcessorWeight.LIGHT
-    processor_scale = ProcessorScale.POINT
-
-    @property
-    def processor_type(self):
-        raise NotImplementedError
-
-    def __init__(self, *, processor_name):
-        super(PointProcessor, self).__init__(processor_name=processor_name)
+    def __init__(self, *, name, weight):
+        super(PointProcessor, self).__init__(name=name, weight=weight, scale=ProcessorScale.POINT)
 
     def scaled_process(self, datamodel, processor_dict, quiet=False):
         data_dict = datamodel.data_dict
@@ -156,10 +91,11 @@ class PointProcessor(Processor):
 
 
 class MeanStdPointProcessor(PointProcessor):
-    processor_type = 'MeanStdPointProcessor'
+    class ResultKey(Enum):
+        pass
 
-    def __init__(self, *, processor_name, source_processor_name):
-        super(MeanStdPointProcessor, self).__init__(processor_name=processor_name)
+    def __init__(self, *, name, source_processor_name):
+        super(MeanStdPointProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT)
         self.source_processor_name = source_processor_name
 
     def process_point(self, point, datamodel):
@@ -169,7 +105,7 @@ class MeanStdPointProcessor(PointProcessor):
         num_loops = data_dict['loop_nums'][point_key]
 
         source_processor_dict = data_dict['shot_processors'][self.source_processor_name]
-        source_processor_name = source_processor_dict['input_param_dict']['kwargs']['processor_name']
+        source_processor_name = source_processor_dict['input_param_dict']['kwargs']['name']
         source_processor_results_dict = source_processor_dict['results']
 
         results_dict = dict()
@@ -205,17 +141,12 @@ class MeanStdPointProcessor(PointProcessor):
 
 
 class AvgAtomRefImagePointProcessor(PointProcessor):
-    class OutputKey(Enum):
+    class ResultKey(Enum):
         AVERAGE_ATOM_IMG = 'avg_atom_img'
         AVERAGE_REF_IMG = 'avg_ref_img'
 
-    processor_weight = ProcessorWeight.LIGHT
-    processor_scale = ProcessorScale.POINT
-    processor_type = 'AvgAtomRefImagePointProcessor'
-
-    def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
-                 processor_name):
-        super(AvgAtomRefImagePointProcessor, self).__init__(processor_name=processor_name)
+    def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice, name):
+        super(AvgAtomRefImagePointProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
@@ -242,23 +173,20 @@ class AvgAtomRefImagePointProcessor(PointProcessor):
         avg_atom_frame = avg_atom_frame / num_loops
         avg_ref_frame = avg_ref_frame / num_loops
         results_dict = dict()
-        results_dict[self.OutputKey.AVERAGE_ATOM_IMG.value] = avg_atom_frame
-        results_dict[self.OutputKey.AVERAGE_REF_IMG.value] = avg_ref_frame
+        results_dict[self.ResultKey.AVERAGE_ATOM_IMG.value] = avg_atom_frame
+        results_dict[self.ResultKey.AVERAGE_REF_IMG.value] = avg_ref_frame
         return results_dict
 
 
 class RandomAtomRefImagePointProcessor(PointProcessor):
-    class OutputKey(Enum):
+    class ResultKey(Enum):
         RANDOM_ATOM_IMG = 'random_atom_img'
         RANDOM_REF_IMG = 'random_ref_img'
         RANDOM_SHOT_NUM = 'random_shot_num'
-    processor_weight = ProcessorWeight.LIGHT
-    processor_scale = ProcessorScale.POINT
-    processor_type = 'RandomAtomRefImagePointProcessor'
 
     def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
-                 processor_name):
-        super(RandomAtomRefImagePointProcessor, self).__init__(processor_name=processor_name)
+                 name):
+        super(RandomAtomRefImagePointProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
@@ -276,7 +204,7 @@ class RandomAtomRefImagePointProcessor(PointProcessor):
                 random_atom_frame = get_image(file_path, self.atom_frame_name, roi_slice=self.roi_slice)
                 random_ref_frame = get_image(file_path, self.ref_frame_name, roi_slice=self.roi_slice)
         results_dict = dict()
-        results_dict[self.OutputKey.RANDOM_ATOM_IMG.value] = random_atom_frame
-        results_dict[self.OutputKey.RANDOM_REF_IMG.value] = random_ref_frame
-        results_dict[self.OutputKey.RANDOM_SHOT_NUM.value] = random_shot
+        results_dict[self.ResultKey.RANDOM_ATOM_IMG.value] = random_atom_frame
+        results_dict[self.ResultKey.RANDOM_REF_IMG.value] = random_ref_frame
+        results_dict[self.ResultKey.RANDOM_SHOT_NUM.value] = random_shot
         return results_dict
