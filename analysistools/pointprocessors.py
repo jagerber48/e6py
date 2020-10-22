@@ -4,7 +4,105 @@ from .imagetools import get_image
 from .datamodel import InputParamLogger, qprint
 
 
-class Aggregator(InputParamLogger):
+class ProcessorWeight(Enum):
+    LIGHT = 'light'
+    HEAVY = 'heavy'
+
+
+class ProcessorScale(Enum):
+    SHOT = 'shot'
+    POINT = 'point'
+    RUN = 'run'
+
+
+class Processor(InputParamLogger):
+    class ResultKey(Enum):
+        pass
+
+    processor_weight = ProcessorWeight.LIGHT
+    processor_scale = ProcessorScale.SHOT
+
+    @property
+    def processor_type(self):
+        raise NotImplementedError
+
+    def __init__(self, *, processor_name):
+        self.processor_name = processor_name
+
+    def create_processor_dict(self, data_dict):
+        processor_dict = dict()
+        processor_dict['input_param_dict'] = self.input_param_dict
+        processor_dict['results'] = dict()
+        data_dict[f'{self.processor_scale}_processors'][self.processor_name] = processor_dict
+        return processor_dict
+
+    def load_processor_dict(self, data_dict):
+        if self.processor_name in data_dict[f'{self.processor_scale}_processors']:
+            processor_dict = data_dict[f'{self.processor_scale}_processors'][self.processor_name]
+            old_input_param_dict = processor_dict['input_param_dict']
+            if self.input_param_dict != old_input_param_dict:
+                processor_dict = self.create_processor_dict(data_dict)
+        else:
+            processor_dict = self.create_processor_dict(data_dict)
+        return processor_dict
+
+    def process(self, datamodel, quiet=False):
+        qprint(f'**Running {self.processor_scale}_processor: {self.processor_name}**', quiet=quiet)
+        data_dict = datamodel.data_dict
+        processor_dict = self.load_processor_dict(data_dict)
+        self.scaled_process(datamodel, processor_dict, quiet=quiet)
+
+    def scaled_process(self, datamodel, processor_dict, quiet=False):
+        """
+        Subclasses will implement generic processing procedures depending on the scale of the Processor. For example
+        a ShotProcessor will loop through all shots while a PointProcessor will loop through all points.
+        """
+        raise NotImplementedError
+
+
+class PointProcessor(Processor):
+    class ResultKey(Enum):
+        pass
+
+    processor_weight = ProcessorWeight.LIGHT
+    processor_scale = ProcessorScale.POINT
+
+    @property
+    def processor_type(self):
+        raise NotImplementedError
+
+    def __init__(self, *, processor_name):
+        super(PointProcessor, self).__init__(processor_name=processor_name)
+
+    def scaled_process(self, datamodel, processor_dict, quiet=False):
+        data_dict = datamodel.data_dict
+        num_points = data_dict['num_points']
+
+        for point in range(num_points):
+            point_key = f'point-{point:d}'
+            try:
+                old_processed_shots = list(processor_dict['results'][point_key]['processed_shots'])
+            except KeyError:
+                old_processed_shots = []
+            shots_to_be_processed = list(data_dict['shot_list'][point_key])
+            if shots_to_be_processed != old_processed_shots:
+                qprint(f'processing {point_key}', quiet=quiet)
+                results_dict = self.process_point(point, datamodel)
+                processor_dict['results'][point_key] = results_dict
+                processor_dict['results'][point_key]['processed_shots'] = shots_to_be_processed
+                data_dict.save_dict(quiet=True)
+            else:
+                qprint(f'skipping processing {point_key}', quiet=quiet)
+
+    def process_point(self, point, datamodel):
+        raise NotImplementedError
+
+
+
+
+
+
+class PointProcessor(InputParamLogger):
     class OutputKey(Enum):
         pass
 
@@ -58,11 +156,11 @@ class Aggregator(InputParamLogger):
         raise NotImplementedError
 
 
-class MeanStdAggregator(Aggregator):
+class MeanStdPointProcessor(PointProcessor):
     aggregator_type = 'MeanStdAggregator'
 
     def __init__(self, *, aggregator_name):
-        super(MeanStdAggregator, self).__init__(aggregator_name=aggregator_name)
+        super(MeanStdPointProcessor, self).__init__(aggregator_name=aggregator_name)
 
     def aggregate_point(self, point, datamodel):
         data_dict = datamodel.data_dict
@@ -107,7 +205,7 @@ class MeanStdAggregator(Aggregator):
         return aggregation_dict
 
 
-class AvgAtomRefImageAggregator(Aggregator):
+class AvgAtomRefImagePointProcessor(PointProcessor):
     class OutputKey(Enum):
         AVERAGE_ATOM_IMG = 'avg_atom_img'
         AVERAGE_REF_IMG = 'avg_ref_img'
@@ -115,7 +213,7 @@ class AvgAtomRefImageAggregator(Aggregator):
 
     def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
                  aggregator_name):
-        super(AvgAtomRefImageAggregator, self).__init__(aggregator_name=aggregator_name)
+        super(AvgAtomRefImagePointProcessor, self).__init__(aggregator_name=aggregator_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
@@ -147,7 +245,7 @@ class AvgAtomRefImageAggregator(Aggregator):
         return results_dict
 
 
-class RandomAtomRefImageAggregator(Aggregator):
+class RandomAtomRefImagePointProcessor(PointProcessor):
     class OutputKey(Enum):
         RANDOM_ATOM_IMG = 'random_atom_img'
         RANDOM_REF_IMG = 'random_ref_img'
@@ -157,7 +255,7 @@ class RandomAtomRefImageAggregator(Aggregator):
 
     def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
                  aggregator_name):
-        super(RandomAtomRefImageAggregator, self).__init__(aggregator_name=aggregator_name)
+        super(RandomAtomRefImagePointProcessor, self).__init__(aggregator_name=aggregator_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
