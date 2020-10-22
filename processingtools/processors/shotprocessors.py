@@ -9,7 +9,7 @@ from enum import Enum
 from ..imagetools import get_image
 from ..datamodel import qprint
 from .processor import Processor, ProcessorWeight, ProcessorScale
-from smart_gaussian2d_fit import fit_gaussian2d
+from ...smart_gaussian2d_fit import fit_gaussian2d
 
 
 class ShotProcessor(Processor):

@@ -81,14 +81,14 @@ class InputParamLogger:
 
 
 class DataModel:
-    def __init__(self, daily_path, run_name, num_points=1, datastream_list=None, analyzer_list=None,
-                 aggregator_list=None, reporter_list=None, reset_hard=False):
+    def __init__(self, daily_path, run_name, num_points=1, datastream_list=None, shot_processor_list=None,
+                 point_processor_list=None, reporter_list=None, reset_hard=False):
         self.daily_path = daily_path
         self.run_name = run_name
         self.num_points = num_points
         self.datastream_list = to_list(datastream_list)
-        self.analyzer_list = to_list(analyzer_list)
-        self.aggregator_list = aggregator_list
+        self.shot_processor_list = to_list(shot_processor_list)
+        self.point_processor_list = point_processor_list
         self.reporter_list = to_list(reporter_list)
 
         self.datastream_dict = dict()
@@ -119,16 +119,16 @@ class DataModel:
                   ', '.join([datastream.datastream_name for datastream in self.datastream_list]) +
                   f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
 
-    def run_analysis(self):
-        if 'analyzers' not in self.data_dict:
-            self.data_dict['analyzers'] = dict()
-        for analyzer in self.analyzer_list:
-            analyzer.analyze_run(self)
+    def process(self):
+        if 'shot_processors' not in self.data_dict:
+            self.data_dict['shot_processors'] = dict()
+        for shot_processor in self.shot_processor_list:
+            shot_processor.process(self)
 
-        if 'aggregators' not in self.data_dict:
-            self.data_dict['aggregators'] = dict()
-        for aggregator in self.aggregator_list:
-            aggregator.aggregate_run(self)
+        if 'point_processors' not in self.data_dict:
+            self.data_dict['point_processors'] = dict()
+        for point_processor in self.point_processor_list:
+            point_processor.process(self)
 
         self.data_dict.save_dict()
 

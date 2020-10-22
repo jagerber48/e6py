@@ -133,9 +133,9 @@ class MeanStdPointProcessor(PointProcessor):
                 else:
                     std_value += (value - avg_value)**2 / (num_loops - 1)
 
-            results_dict[source_processor_results_dict][key] = dict()
-            results_dict[source_processor_results_dict][key]['mean'] = avg_value
-            results_dict[source_processor_results_dict][key]['std'] = std_value
+            results_dict[source_processor_name][key] = dict()
+            results_dict[source_processor_name][key]['mean'] = avg_value
+            results_dict[source_processor_name][key]['std'] = std_value
 
         return results_dict
 
