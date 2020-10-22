@@ -13,10 +13,10 @@ class Reporter:
 
 
 class AtomRefCountsReporter(Reporter):
-    def __init__(self, atom_counts_analyzer_name, ref_counts_analyzer_name, reporter_name='counts_reporter'):
+    def __init__(self, atom_counts_processor_name, ref_counts_processor_name, reporter_name='counts_reporter'):
         super(AtomRefCountsReporter, self).__init__(reporter_name)
-        self.atom_counts_analyzer_name = atom_counts_analyzer_name
-        self.ref_counts_analyzer_name = ref_counts_analyzer_name
+        self.atom_counts_processor_name = atom_counts_processor_name
+        self.ref_counts_processor_name = ref_counts_processor_name
 
     def report(self, datamodel):
         data_dict = datamodel.data_dict
@@ -29,8 +29,8 @@ class AtomRefCountsReporter(Reporter):
             atom_data = []
             ref_data = []
             for shot in shot_list:
-                atom_counts = data_dict['shot_processors'][self.atom_counts_analyzer_name]['results'][f'shot-{shot}']['counts']
-                ref_counts = data_dict['shot_processors'][self.ref_counts_analyzer_name]['results'][f'shot-{shot}']['counts']
+                atom_counts = data_dict['shot_processors'][self.atom_counts_processor_name]['results'][f'shot-{shot}']['counts']
+                ref_counts = data_dict['shot_processors'][self.ref_counts_processor_name]['results'][f'shot-{shot}']['counts']
                 atom_data.append(atom_counts)
                 ref_data.append(ref_counts)
             fig = plt.figure(figsize=(12, 12))

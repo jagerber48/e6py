@@ -1,11 +1,11 @@
-import h5py
+from enum import Enum
 import numpy as np
 from pathlib import Path
-import xarray as xr
 from scipy.signal import butter, filtfilt
 from scipy.constants import hbar
-# from scipy.interpolate import interp1d
-from enum import Enum
+from scipy.interpolate import interp1d
+import h5py
+import xarray as xr
 from ..imagetools import get_image
 from ..datamodel import qprint
 from .processor import Processor, ProcessorWeight, ProcessorScale
@@ -201,13 +201,12 @@ class HetDemodulationShotProcessor(ShotProcessor):
     class ResultKey(Enum):
         RESULT_FILE_PATH = 'result_file_path'
 
-    def __init__(self, *, datastream_name, channel_name, segment_name, sample_period, carrier_frequency,
+    def __init__(self, *, datastream_name, channel_name, segment_name, carrier_frequency,
                  bandwidth, downsample_rate, name, reset):
         super(HetDemodulationShotProcessor, self).__init__(name=name, weight=ProcessorWeight.HEAVY, reset=reset)
         self.datastream_name = datastream_name
         self.channel_name = channel_name
         self.segment_name = segment_name
-        self.sample_period = sample_period
         self.carrier_frequency = carrier_frequency
         self.bandwidth = bandwidth
         self.downsample_rate = downsample_rate
@@ -220,14 +219,15 @@ class HetDemodulationShotProcessor(ShotProcessor):
         output_data_path.mkdir(parents=True, exist_ok=True)
         output_file_path = Path(output_data_path, f'het_analysis_{shot_num:05d}.h5')
 
-        raw_het = h5py.File(file_path, 'r')[self.channel_name][self.segment_name]
+        with h5py.File(file_path, 'r') as h5:
+            raw_het = h5[self.channel_name][self.segment_name]
 
-        num_samples = len(raw_het)
-        dt = self.sample_period
-        t_coord = np.arange(0, num_samples) * dt
+            num_samples = len(raw_het)
+            dt = h5[self.channel_name][self.segment_name].attrs['dx']
+            t_coord = np.arange(0, num_samples) * dt
 
-        raw_het_xr = xr.DataArray(raw_het, coords={'time': t_coord}, dims=['time'])
-        I_het, Q_het, A_het, phi_het, time_series = self.demodulate(raw_het_xr, self.downsample_rate)
+            raw_het_xr = xr.DataArray(raw_het, coords={'time': t_coord}, dims=['time'])
+            I_het, Q_het, A_het, phi_het, time_series = self.demodulate(raw_het_xr, self.downsample_rate, dt)
 
         with h5py.File(str(output_file_path), 'w') as hf:
             hf.create_dataset('I_het', data=I_het.astype('float'))
@@ -240,8 +240,8 @@ class HetDemodulationShotProcessor(ShotProcessor):
         results_dict[self.ResultKey.RESULT_FILE_PATH.value] = output_file_path
         return results_dict
 
-    def butter_lowpass_filter(self, data, order):
-        nyquist_freq = (1 / 2) * (1 / self.sample_period)
+    def butter_lowpass_filter(self, data, order, dt):
+        nyquist_freq = (1 / 2) * (1 / dt)
         normalized_cutoff = self.bandwidth / nyquist_freq
         # Get the filter coefficients
         # noinspection PyTupleAssignmentBalance
@@ -249,11 +249,11 @@ class HetDemodulationShotProcessor(ShotProcessor):
         y = filtfilt(b, a, data)
         return y
 
-    def demodulate(self, het_xr, downsample_rate):
+    def demodulate(self, het_xr, downsample_rate, dt):
         time_data = het_xr.coords['time'].values
         lo_signal = np.exp(1j * 2 * np.pi * self.carrier_frequency * time_data)
         demod_sig = het_xr * lo_signal
-        demod_sig = self.butter_lowpass_filter(demod_sig, 3)
+        demod_sig = self.butter_lowpass_filter(demod_sig, 3, dt)
         demod_sig = demod_sig[::downsample_rate]
         I_sig = np.real(demod_sig)
         Q_sig = np.imag(demod_sig)
@@ -284,34 +284,40 @@ class AbsorptionGaussianFitShotProcessor(ShotProcessor):
         return results_dict
 
 
+# noinspection PyPep8Naming
 # class CavSweepShotProcessor(ShotProcessor):
-#     class OutputKey(Enum):
+#     class ResultKey(Enum):
 #         GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
 #
-#     analyzer_type = 'CavSweepAnalyzer'
-#
-#     def __init__(self, *, het_demod_analyzer_name, vco_channel_name, segment_name, analyzer_name):
-#         super(CavSweepShotProcessor, self).__init__(analyzer_name=analyzer_name)
-#         self.het_demod_analyzer_name = het_demod_analyzer_name
+#     def __init__(self, *, het_demod_processor_name, vco_channel_name, segment_name, name, reset):
+#         super(CavSweepShotProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT, reset=reset)
+#         self.het_demod_processor_name = het_demod_processor_name
 #         self.vco_channel_name = vco_channel_name
 #         self.segment_name = segment_name
 #
-#     def analyze_shot(self, shot_num, datamodel):
+#     def process_shot(self, shot_num, datamodel):
 #         shot_key = f'shot-{shot_num:d}'
 #         data_dict = datamodel.data_dict
-#         het_demod_analyzer_dict = data_dict['analyzers'][self.het_demod_analyzer_name]
-#         het_demod_file_path = het_demod_analyzer_dict['results'][shot_key]['result_file_path']
+#         het_demod_processor_dict = data_dict['shot_processors'][self.het_demod_processor_name]
 #
-#         time_data = h5py.File(het_demod_file_path, 'r')['time_series']
-#         A_het = h5py.File(het_demod_file_path, 'r')['A_het']
-#         interp_func = interp1d(time_data, time_data)
+#         A_het, het_time_data = self.get_A_het_trace(het_demod_processor_dict, shot_key)
+#         interp_func = interp1d(het_time_data, het_time_data)
 #
-#         vco_datastream_name = (het_demod_analyzer_dict['input_param_dict']['kwargs']['datastream_name'])
+#         vco_datastream_name = (het_demod_processor_dict['input_param_dict']['kwargs']['datastream_name'])
 #         datastream = datamodel.datastream_dict[vco_datastream_name]
 #         raw_het_file_path = datastream.get_file_path(shot_num)
 #
 #         vco_trace = h5py.File(file_path, 'r')[self.vco_channel_name][self.segment_name]
 #         freq_trace = self.vco_v_to_f(vco_trace)
+#
+#     @staticmethod
+#     def get_A_het_trace(het_demod_processor_dict, shot_key):
+#         het_demod_file_path = het_demod_processor_dict['results'][shot_key]['result_file_path']
+#         time_data = h5py.File(het_demod_file_path, 'r')['time_series']
+#         A_het = h5py.File(het_demod_file_path, 'r')['A_het']
+#         return A_het, time_data
+#
+#     get_VCO_trace
 #
 #     @staticmethod
 #     def vco_v_to_f(volt):
