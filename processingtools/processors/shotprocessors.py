@@ -6,8 +6,8 @@ from scipy.signal import butter, filtfilt
 from scipy.constants import hbar
 # from scipy.interpolate import interp1d
 from enum import Enum
-from analysistools.imagetools import get_image
-from analysistools.datamodel import qprint
+from ..imagetools import get_image
+from ..datamodel import qprint
 from .processor import Processor, ProcessorWeight, ProcessorScale
 from smart_gaussian2d_fit import fit_gaussian2d
 
