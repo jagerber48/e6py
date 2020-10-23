@@ -8,6 +8,7 @@ import h5py
 import xarray as xr
 from ..imagetools import get_image
 from ..datamodel import qprint
+from ..datastreamtools import get_gagescope_trace
 from .processor import Processor, ProcessorWeight, ProcessorScale
 from ...smart_gaussian2d_fit import fit_gaussian2d
 from ..fittools import lor_fit
@@ -332,16 +333,3 @@ class CavSweepFitShotProcessor(ShotProcessor):
         # Calibration taken from
         freq = 2 * (62.970 * volt + 42.014)
         return freq
-
-
-def get_gagescope_trace(file_path, channel_name, segment_name):
-    h5 = h5py.File(file_path, 'r')
-    channel_data = h5[channel_name]
-    sample_offset = channel_data.attrs['sample_offset']
-    sample_res = channel_data.attrs['sample_res']
-    sample_range = channel_data.attrs['input_range']
-    offset_v = channel_data.attrs['dc_offset']
-    data = channel_data[segment_name]
-    scaled_data = ((sample_offset - data) / sample_res) * (sample_range / 2000.0) + offset_v
-    dt = data.attrs['dx']
-    return scaled_data, dt

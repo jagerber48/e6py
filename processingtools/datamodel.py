@@ -2,7 +2,6 @@ from functools import reduce
 import numpy as np
 from pathlib import Path
 import pickle
-import h5py
 
 
 def qprint(text, quiet=False):
@@ -154,33 +153,6 @@ class DataModel:
             self.data_dict['shot_list'][key] = point_shots
             self.data_dict['loop_nums'][key] = point_loops
         self.data_dict.save_dict()
-
-
-class RawDataStream(InputParamLogger):
-    def __init__(self, *, datastream_name, file_prefix):
-        self.datastream_name = datastream_name
-        self.file_prefix = file_prefix
-        self.data_path = None
-        self.num_shots = None
-
-    def set_run(self, daily_path, run_name):
-        self.data_path = Path(daily_path, 'data', run_name, self.datastream_name)
-        self.num_shots = self.get_num_shots()
-
-    def get_file_path(self, shot_num):
-        file_name = f'{self.file_prefix}_{shot_num:05d}.h5'
-        file_path = Path(self.data_path, file_name)
-        return file_path
-
-    def load_shot_h5(self, shot_num=0):
-        file_name = f'{self.file_prefix}_{shot_num:05d}.h5'
-        h5_file = h5py.File(file_name, 'r')
-        return h5_file
-
-    def get_num_shots(self):
-        file_list = list(self.data_path.glob('*.h5'))
-        self.num_shots = len(file_list)
-        return self.num_shots
 
 
 class DataModelDict:
