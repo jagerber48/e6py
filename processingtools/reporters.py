@@ -4,6 +4,7 @@ from pathlib import Path
 import h5py
 from uncertainties import ufloat
 from .datamodel import dataset_from_keychain, shot_to_loop_and_point
+from .fittools import lorentzian_fit_function
 
 
 class Reporter:
@@ -253,6 +254,43 @@ class GaussianFitAllShotsReporter(AllShotsReporter):
             print_str += f"{key} = {ufloat(val, std)}\n"
         fig.text(.8, .5, print_str)
 
+        return fig
+
+
+class LorFitAllShotsReporter(AllShotsReporter):
+    def __init__(self, *, reporter_name, lor_fit_processor, x_label, x_units, y_label, y_units):
+        super(LorFitAllShotsReporter, self).__init__(reporter_name=reporter_name)
+        self.lor_fit_processor = lor_fit_processor
+        self.x_label = x_label
+        self.x_units = x_units
+        self.y_label = y_label
+        self.y_units = y_units
+
+    # noinspection PyPep8Naming
+    def report_shot(self, shot_num, datamodel):
+        data_dict = datamodel.data_dict
+        shot_key = f'shot-{shot_num:d}'
+        fit_struct = (data_dict['shot_processors'][self.lor_fit_processor]
+                      ['results'][shot_key]['lor_fit_struct'])
+
+        x_data = fit_struct['input_data']
+        y_data = fit_struct['output_data']
+        popt = [fit_struct[key]['val'] for key in fit_struct['param_keys']]
+
+        x_min = np.min(x_data)
+        x_max = np.max(x_data)
+        x_range = (1 / 2) * (x_max - x_min)
+        x_center = (1 / 2) * (x_max + x_min)
+        plot_min = x_center - 1.1 * x_range
+        plot_max = x_center + 1.1 * x_range
+        plot_x_list = np.linspace(plot_min, plot_max, 100)
+
+        fig = plt.figure(figsize=(12, 12))
+        ax = fig.add_subplot(1, 1, 1)
+        ax.plot(x_data[5:], y_data[5:], '.', markersize=10)
+        ax.plot(plot_x_list, lorentzian_fit_function(plot_x_list, *popt))
+        ax.set_xlabel(f'{self.x_label} ({self.x_units})')
+        ax.set_ylabel(f'{self.y_label} ({self.y_units})')
         return fig
 
 
