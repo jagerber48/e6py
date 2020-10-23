@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import h5py
+from uncertainties import ufloat
 from .datamodel import dataset_from_keychain, shot_to_loop_and_point
 
 
@@ -162,7 +163,7 @@ class AllShotsReporter(Reporter):
                 plot_title = f'{self.reporter_name} - {run_name} - {point_key} - loop-{loop_num} - shot-{shot_num}'
                 fig = self.report_shot(shot_num, datamodel)
                 fig.suptitle(plot_title, fontsize=16)
-                fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+                # fig.tight_layout(rect=[0, 0.03, 1, 0.95])
                 save_file_name = Path(save_dir, f'{self.reporter_name}_{shot_num:05d}.png')
                 fig.savefig(save_file_name)
                 plt.close(fig)
@@ -171,13 +172,96 @@ class AllShotsReporter(Reporter):
         raise NotImplementedError
 
 
+class GaussianFitAllShotsReporter(AllShotsReporter):
+    def __init__(self, *, reporter_name, gaussian_fit_processor):
+        super(GaussianFitAllShotsReporter, self).__init__(reporter_name=reporter_name)
+        self.gaussian_fit_processor = gaussian_fit_processor
+
+    # noinspection PyPep8Naming
+    def report_shot(self, shot_num, datamodel):
+        data_dict = datamodel.data_dict
+        shot_key = f'shot-{shot_num:d}'
+        fit_struct = (data_dict['shot_processors'][self.gaussian_fit_processor]
+                      ['results'][shot_key]['gaussian_fit_struct'])
+
+        img = fit_struct['data_img']
+        model_img = fit_struct['model_img']
+        x_range = img.shape[1]
+        y_range = img.shape[0]
+        x0 = int(round(fit_struct['x0']['val']))
+        y0 = int(round(fit_struct['y0']['val']))
+        sx = fit_struct['sx']['val']
+        sy = fit_struct['sy']['val']
+        img_min = np.min([img.min(), model_img.min()])
+        img_max = np.max([img.max(), model_img.max()])
+
+        # Plotting
+        fig = plt.figure(figsize=(12, 12))
+
+        # Data 2D Plot
+        ax_data = fig.add_subplot(2, 2, 1, position=[0.1, 0.5, 0.25, 0.35])
+        ax_data.imshow(img, vmin=img_min, vmax=img_max, cmap='binary_r')
+        # TODO: check aspect ratio
+        ax_data.set_aspect(y_range / x_range)
+        ax_data.xaxis.tick_top()
+        ax_data.set_xlabel('Horizontal Position')
+        ax_data.xaxis.set_label_position('top')
+        ax_data.set_ylabel('Vertical Position')
+        ax_data.set_ylim(0, y_range)
+        ax_data.set_xlim(0, x_range)
+
+        # Fit 2D Plot
+        ax_fit = fig.add_subplot(2, 2, 4, position=[0.4, 0.1, 0.25, 0.35])
+        ax_fit.imshow(model_img, vmin=img_min, vmax=img_max, cmap='binary_r')
+        ax_fit.set_aspect(y_range / x_range)
+        ax_fit.yaxis.tick_right()
+        ax_fit.set_xlabel('Horizontal Position')
+        ax_fit.set_ylabel('Vertical Position')
+        ax_fit.yaxis.set_label_position('right')
+        ax_fit.set_ylim(0, y_range)
+        ax_fit.set_xlim(0, x_range)
+
+        # Y Linecut Plot
+        ax_yline = fig.add_subplot(2, 2, 2, position=[0.4, 0.5, 0.25, 0.35])
+        y_int_cut_dat = np.sum(img, axis=1) / np.sqrt(2 * np.pi * sx ** 2)
+        y_int_cut_model = np.sum(model_img, axis=1) / np.sqrt(2 * np.pi * sx ** 2)
+        ax_yline.plot(y_int_cut_dat, range(y_range), 'o', zorder=1)
+        ax_yline.plot(y_int_cut_model, range(y_range), zorder=2)
+        ax_yline.yaxis.tick_right()
+        ax_yline.xaxis.tick_top()
+        ax_yline.set_xlabel('Integrated Intensity')
+        ax_yline.xaxis.set_label_position('top')
+        ax_data.axvline(x0, linestyle='--')
+        ax_fit.axvline(x0, linestyle='--')
+
+        # X Linecut Plot
+        ax_xline = fig.add_subplot(2, 2, 3, position=[0.1, 0.1, 0.25, 0.35])
+        x_int_cut_dat = np.sum(img, axis=0) / np.sqrt(2 * np.pi * sy ** 2)
+        x_int_cut_model = np.sum(model_img, axis=0) / np.sqrt(2 * np.pi * sy ** 2)
+        ax_xline.plot(range(x_range), x_int_cut_dat, 'o', zorder=1)
+        ax_xline.plot(range(x_range), x_int_cut_model, zorder=2)
+        ax_xline.invert_yaxis()
+        ax_xline.set_ylabel('Integrated Intensity')
+        ax_data.axhline(y0, linestyle='--')
+        ax_fit.axhline(y0, linestyle='--')
+
+        print_str = ''
+        for key in fit_struct['param_keys']:
+            param = fit_struct[key]
+            val = round(param['val'], 3)
+            std = round(param['std'], 3)
+            print_str += f"{key} = {ufloat(val, std)}\n"
+        fig.text(.8, .5, print_str)
+
+        return fig
+
+
 class HetDemodAllShotsReporter(AllShotsReporter):
-    def __init__(self, *, reporter_name, atom_het_demod_processor, ref_het_demod_processor, shot_num,
+    def __init__(self, *, reporter_name, atom_het_demod_processor, ref_het_demod_processor,
                  t_start=None, t_stop=None):
         super(HetDemodAllShotsReporter, self).__init__(reporter_name=reporter_name)
         self.atom_het_demod_processor = atom_het_demod_processor
         self.ref_het_demod_processor = ref_het_demod_processor
-        self.shot_num = shot_num
         self.t_start = t_start
         self.t_stop = t_stop
 
