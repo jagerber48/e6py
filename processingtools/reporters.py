@@ -152,6 +152,7 @@ class AllShotsReporter(Reporter):
 
         daily_path = data_dict['daily_path']
         save_dir = Path(daily_path, 'analysis', run_name, 'reporters', self.reporter_name)
+        save_dir.mkdir(parents=True, exist_ok=True)
 
         for point in range(num_points):
             point_key = f'point-{point:d}'
@@ -159,10 +160,87 @@ class AllShotsReporter(Reporter):
             for shot_num in shot_list:
                 loop_num, _ = shot_to_loop_and_point(shot=shot_num, num_points=num_points)
                 plot_title = f'{self.reporter_name} - {run_name} - {point_key} - loop-{loop_num} - shot-{shot_num}'
-                self.report_shot(shot_num, plot_title, datamodel)
+                fig = self.report_shot(shot_num, datamodel)
+                fig.suptitle(plot_title, fontsize=16)
+                fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+                save_file_name = Path(save_dir, f'{self.reporter_name}_{shot_num:05d}.png')
+                fig.savefig(save_file_name)
+                plt.close(fig)
 
-    def report_shot(self, shot_num, plot_title, datamodel):
+    def report_shot(self, shot_num, datamodel):
         raise NotImplementedError
+
+
+class HetDemodAllShotsReporter(AllShotsReporter):
+    def __init__(self, *, reporter_name, atom_het_demod_processor, ref_het_demod_processor, shot_num,
+                 t_start=None, t_stop=None):
+        super(HetDemodAllShotsReporter, self).__init__(reporter_name=reporter_name)
+        self.atom_het_demod_processor = atom_het_demod_processor
+        self.ref_het_demod_processor = ref_het_demod_processor
+        self.shot_num = shot_num
+        self.t_start = t_start
+        self.t_stop = t_stop
+
+    # noinspection PyPep8Naming
+    def report_shot(self, shot_num, datamodel):
+        data_dict = datamodel.data_dict
+
+        shot_key = f'shot-{shot_num:d}'
+        atom_h5file = (data_dict['shot_processors'][self.atom_het_demod_processor]
+                       ['results'][shot_key]['result_file_path'])
+        ref_h5file = (data_dict['shot_processors'][self.ref_het_demod_processor]
+                      ['results'][shot_key]['result_file_path'])
+        with h5py.File(atom_h5file, 'r') as atom_file:
+            with h5py.File(ref_h5file, 'r') as ref_file:
+                t = atom_file['time_series']
+                if self.t_start is None:
+                    self.t_start = t[0]
+                if self.t_stop is None:
+                    self.t_stop = t[-1]
+                mask = np.logical_and(self.t_start < t, t < self.t_stop)
+                t = t[mask] * 1e3
+
+                fig = plt.figure(figsize=(12, 12))
+
+                ax_A_het = fig.add_subplot(2, 2, 1)
+                atom_A_het = (atom_file['A_het'][mask])
+                ref_A_het = (ref_file['A_het'][mask])
+                ax_A_het.plot(t, atom_A_het)
+                ax_A_het.plot(t, ref_A_het)
+                ax_A_het.set_title('Amplitude')
+
+                ax_phi_het = fig.add_subplot(2, 2, 3)
+                atom_phi_het = (atom_file['phi_het'][mask])
+                ref_phi_het = (ref_file['phi_het'][mask])
+                # Center central data point of phi_het between 0 and 2 * np.pi
+                atom_phi_het = np.unwrap(atom_phi_het)
+                ref_phi_het = np.unwrap(ref_phi_het)
+                num_samples = len(atom_phi_het)
+                atom_phi_het = atom_phi_het - ((atom_phi_het[int(num_samples / 2)] // (2 * np.pi)) * 2 * np.pi)
+                ref_phi_het = ref_phi_het - ((ref_phi_het[int(num_samples / 2)] // (2 * np.pi)) * 2 * np.pi)
+
+                ax_phi_het.plot(t, np.unwrap(atom_phi_het) / np.pi)
+                ax_phi_het.plot(t, np.unwrap(ref_phi_het) / np.pi)
+                ax_phi_het.set_title(r'Phase ($\pi$)')
+                ax_phi_het.set_xlabel('Time (ms)')
+
+                ax_Q_het = fig.add_subplot(2, 2, 2)
+                atom_Q_het = (atom_file['Q_het'][mask])
+                ref_Q_het = (ref_file['Q_het'][mask])
+                ax_Q_het.plot(t, atom_Q_het)
+                ax_Q_het.plot(t, ref_Q_het)
+                ax_Q_het.set_title('Q-Quadrature')
+
+                ax_I_het = fig.add_subplot(2, 2, 4)
+                atom_I_het = (atom_file['I_het'][mask])
+                ref_I_het = (ref_file['I_het'][mask])
+                ax_I_het.plot(t, atom_I_het)
+                ax_I_het.plot(t, ref_I_het)
+                ax_I_het.legend(['With Atoms', 'No Atoms'])
+                ax_I_het.set_title('I-Quadrature')
+                ax_I_het.set_xlabel('Time (ms)')
+
+        return fig
 
 
 class HetDemodSingleShotReporter(Reporter):

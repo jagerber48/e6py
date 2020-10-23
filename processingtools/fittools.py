@@ -70,10 +70,10 @@ def e6_fit(output_data, fit_func, param_guess, input_data=None, param_keys=None,
     return fit_struct
 
 
-def lorentzian_fit_function(x, delta_f, f0, amplitude, offset):
-    delta_f_hwhm = delta_f / 2
-    detuning = x - f0
-    return amplitude * (delta_f_hwhm**2) / (delta_f_hwhm**2 + detuning**2) + offset
+def lorentzian_fit_function(x, delta_x, x0, amplitude, offset):
+    delta_x_hwhm = delta_x / 2
+    detuning = x - x0
+    return amplitude * (delta_x_hwhm**2) / (delta_x_hwhm**2 + detuning**2) + offset
 
 
 def lor_fit(x_data, y_data, param_guess=None, x_label='', y_label='Signal', x_units='', y_units='a.u.',
