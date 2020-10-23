@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import h5py
-from .datamodel import dataset_from_keychain
+from .datamodel import dataset_from_keychain, shot_to_loop_and_point
 
 
 class Reporter:
@@ -65,7 +65,7 @@ class AtomRefCountsReporter(Reporter):
 class AvgRndmImgReporter(Reporter):
     def __init__(self, avg_processor_name, rndm_processor_name,
                  reporter_name='avg_rndm_img_reporter'):
-        super(AvgRndmImgReporter, self).__init__(reporter_name)
+        super(AvgRndmImgReporter, self).__init__(reporter_name=reporter_name)
         self.avg_processor_name = avg_processor_name
         self.rndm_processor_name = rndm_processor_name
 
@@ -139,6 +139,30 @@ class AvgRndmImgReporter(Reporter):
             fig.savefig(save_file_path)
 
         plt.show()
+
+
+class AllShotsReporter(Reporter):
+    def __init__(self, *, reporter_name):
+        super(AllShotsReporter, self).__init__(reporter_name=reporter_name)
+
+    def report(self, datamodel):
+        data_dict = datamodel.data_dict
+        run_name = data_dict['run_name']
+        num_points = data_dict['num_points']
+
+        daily_path = data_dict['daily_path']
+        save_dir = Path(daily_path, 'analysis', run_name, 'reporters', self.reporter_name)
+
+        for point in range(num_points):
+            point_key = f'point-{point:d}'
+            shot_list = data_dict['shot_list'][point_key]
+            for shot_num in shot_list:
+                loop_num, _ = shot_to_loop_and_point(shot=shot_num, num_points=num_points)
+                plot_title = f'{self.reporter_name} - {run_name} - {point_key} - loop-{loop_num} - shot-{shot_num}'
+                self.report_shot(shot_num, plot_title, datamodel)
+
+    def report_shot(self, shot_num, plot_title, datamodel):
+        raise NotImplementedError
 
 
 class HetDemodSingleShotReporter(Reporter):
