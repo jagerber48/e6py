@@ -151,7 +151,7 @@ def make_visualization_figure(fit_struct, show_plot=True, save_name=None):
     return
 
 
-def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
+def create_fit_struct(img, popt_dict, pcov, conf_level, dof, lightweight=False):
     y_coords, x_coords = np.indices(img.shape)
     model_img = gaussian_2d(x_coords, y_coords, **popt_dict)
     fit_struct = dict()
@@ -162,8 +162,9 @@ def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
         fit_struct_param_keys.append(key)
     fit_struct['param_keys'] = fit_struct_param_keys
     fit_struct['cov'] = pcov
-    fit_struct['data_img'] = img
-    fit_struct['model_img'] = model_img
+    if not lightweight:
+        fit_struct['data_img'] = img
+        fit_struct['model_img'] = model_img
     fit_struct['NGauss'] = fit_struct['amp']['val'] * 2 * np.pi * fit_struct['sx']['val'] * fit_struct['sy']['val']
     fit_struct['NSum'] = np.sum(img)
     # TODO: NSum_BGsubtract should subtract linear background as well if it was fitted for
@@ -173,7 +174,7 @@ def create_fit_struct(img, popt_dict, pcov, conf_level, dof):
 
 # noinspection PyTypeChecker
 def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_angle=False,
-                   show_plot=True, save_name=None, conf_level=erf(1 / np.sqrt(2)), quiet=True):
+                   show_plot=True, save_name=None, conf_level=erf(1 / np.sqrt(2)), quiet=True, lightweight=False):
     """
     2D Gaussian fit to an image
 
@@ -327,8 +328,11 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
         print(e)
         cov = 0 * jac
 
-    fit_struct = create_fit_struct(img, popt_dict, cov, conf_level, dof)
+    fit_struct = create_fit_struct(img, popt_dict, cov, conf_level, dof, lightweight=lightweight)
     if show_plot or (save_name is not None):
-        make_visualization_figure(fit_struct, show_plot, save_name)
+        if not lightweight:
+            make_visualization_figure(fit_struct, show_plot, save_name)
+        else:
+            print('Cannot visualize data with lightweight fit_struct')
 
     return fit_struct
