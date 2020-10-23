@@ -45,12 +45,13 @@ class RawLoader(Loader):
 
 class AbsorptionLoader(RawLoader):
     def __init__(self, *, loader_name, datastream_name, file_prefix,
-                 atom_frame_keychain, bright_frame_keychain, dark_frame_keychain):
+                 atom_frame_keychain, bright_frame_keychain, dark_frame_keychain, roi_slice):
         super(AbsorptionLoader, self).__init__(loader_name=loader_name, datastream_name=datastream_name,
                                                file_prefix=file_prefix)
         self.atom_frame_keychain = atom_frame_keychain
         self.bright_frame_keychain = bright_frame_keychain
         self.dark_frame_keychain = dark_frame_keychain
+        self.roi_slice = roi_slice
 
     def load_shot(self, shot_num):
         file_path = self.get_file_path(shot_num)
@@ -58,6 +59,9 @@ class AbsorptionLoader(RawLoader):
             atom_frame = self.reduce_datasource_by_key(data_h5, self.atom_frame_keychain)
             bright_frame = self.reduce_datasource_by_key(data_h5, self.bright_frame_keychain)
             dark_frame = self.reduce_datasource_by_key(data_h5, self.dark_frame_keychain)
+            atom_frame = atom_frame[self.roi_slice]
+            bright_frame = bright_frame[self.roi_slice]
+            dark_frame = dark_frame[self.roi_slice]
         return atom_frame, bright_frame, dark_frame
 
 

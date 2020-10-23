@@ -98,7 +98,7 @@ class DataModel:
         self.quiet = quiet
 
         self.loader_dict = dict()
-        for loader in loader_list:
+        for loader in self.loader_list:
             loader.set_run(self.daily_path, self.run_name)
             self.loader_dict[loader.loader_name] = loader
 

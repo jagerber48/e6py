@@ -18,8 +18,8 @@ class ShotProcessor(Processor):
     class ResultKey(Enum):
         pass
 
-    def __init__(self, *, name, weight, reset):
-        super(ShotProcessor, self).__init__(name=name, weight=weight, scale=ProcessorScale.SHOT)
+    def __init__(self, *, processor_name, weight, reset):
+        super(ShotProcessor, self).__init__(name=processor_name, weight=weight, scale=ProcessorScale.SHOT)
         self.reset = reset
 
     def scaled_process(self, datamodel, processor_dict, quiet=False):
@@ -44,8 +44,8 @@ class CountsShotProcessor(ShotProcessor):
     class ResultKey(Enum):
         COUNTS = 'counts'
 
-    def __init__(self, *, datastream_name, frame_name, roi_slice, name, reset):
-        super(CountsShotProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT, reset=reset)
+    def __init__(self, *, datastream_name, frame_name, roi_slice, processor_name, reset):
+        super(CountsShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.LIGHT, reset=reset)
         self.datastream_name = datastream_name
         self.frame_name = frame_name
         self.roi_slice = roi_slice
@@ -86,8 +86,8 @@ class AbsorptionShotProcessor(ShotProcessor):
         ABSORPTION_IMAGE = 'absorption_image'
         OD_IMAGE = 'od_image'
 
-    def __init__(self, *, loader_name, atom_dict, imaging_system_dict, roi_slice, calc_high_sat, name, reset):
-        super(AbsorptionShotProcessor, self).__init__(name=name, weight=ProcessorWeight.HEAVY, reset=reset)
+    def __init__(self, *, processor_name, loader_name, atom_dict, imaging_system_dict, calc_high_sat, reset):
+        super(AbsorptionShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.HEAVY, reset=reset)
         if imaging_system_dict is None:
             imaging_system_dict = side_imaging_dict
         if atom_dict is None:
@@ -95,7 +95,6 @@ class AbsorptionShotProcessor(ShotProcessor):
         self.loader_name = loader_name
         self.atom_dict = atom_dict
         self.imaging_system_dict = imaging_system_dict
-        self.roi_slice = roi_slice
         self.calc_high_sat = calc_high_sat
 
         self.linewidth = self.atom_dict['linewidth']
@@ -108,11 +107,8 @@ class AbsorptionShotProcessor(ShotProcessor):
         self.count_conversion = self.imaging_system_dict['count_conversion']
 
     def process_shot(self, shot_num, datamodel):
-        datastream = datamodel.datastream_dict[self.datastream_name]
-        file_path = datastream.get_file_path(shot_num)
-        atom_frame = get_image(file_path, self.atom_frame_name, roi_slice=self.roi_slice)
-        bright_frame = get_image(file_path, self.bright_frame_name, roi_slice=self.roi_slice)
-        dark_frame = get_image(file_path, self.dark_frame_name, roi_slice=self.roi_slice)
+        loader = datamodel.loader_dict[self.loader_name]
+        atom_frame, bright_frame, dark_frame = loader.load_shot(shot_num)
         od_frame, atom_frame = self.absorption_od_and_number(atom_frame, bright_frame, dark_frame)
         results_dict = dict()
         results_dict[self.ResultKey.ABSORPTION_IMAGE.value] = atom_frame
@@ -200,8 +196,8 @@ class HetDemodulationShotProcessor(ShotProcessor):
         RESULT_FILE_PATH = 'result_file_path'
 
     def __init__(self, *, datastream_name, channel_name, segment_name, carrier_frequency,
-                 bandwidth, downsample_rate, name, reset):
-        super(HetDemodulationShotProcessor, self).__init__(name=name, weight=ProcessorWeight.HEAVY, reset=reset)
+                 bandwidth, downsample_rate, processor_name, reset):
+        super(HetDemodulationShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.HEAVY, reset=reset)
         self.datastream_name = datastream_name
         self.channel_name = channel_name
         self.segment_name = segment_name
@@ -266,8 +262,8 @@ class AbsorptionGaussianFitShotProcessor(ShotProcessor):
     class ResultKey(Enum):
         GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
 
-    def __init__(self, *, source_processor_name, name, reset):
-        super(AbsorptionGaussianFitShotProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT, reset=reset)
+    def __init__(self, *, source_processor_name, processor_name, reset):
+        super(AbsorptionGaussianFitShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.LIGHT, reset=reset)
         self.source_processor_name = source_processor_name
 
     def process_shot(self, shot_num, datamodel):
@@ -284,8 +280,8 @@ class CavSweepFitShotProcessor(ShotProcessor):
     class ResultKey(Enum):
         LOR_FIT_STRUCT = 'lor_fit_struct'
 
-    def __init__(self, *, het_demod_processor_name, vco_channel_name, name, reset):
-        super(CavSweepFitShotProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT, reset=reset)
+    def __init__(self, *, het_demod_processor_name, vco_channel_name, processor_name, reset):
+        super(CavSweepFitShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.LIGHT, reset=reset)
         self.het_demod_processor_name = het_demod_processor_name
         self.vco_channel_name = vco_channel_name
 
