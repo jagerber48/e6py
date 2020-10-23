@@ -154,3 +154,54 @@ class RandomAtomRefImagePointProcessor(PointProcessor):
         results_dict[self.ResultKey.RANDOM_REF_IMG.value] = random_ref_frame
         results_dict[self.ResultKey.RANDOM_SHOT_NUM.value] = random_shot
         return results_dict
+
+
+class CountsThresholdPointProcessor(PointProcessor):
+    class ResultKey(Enum):
+        THRESHOLD = 'threshold'
+        SHOTS_ABOVE = 'shots_above'
+        NUM_ABOVE = 'num_above'
+        FRAC_ABOVE = 'frac_above'
+
+        SHOTS_BELOW = 'shots_below'
+        NUM_BELOW = 'num_below'
+        FRAC_BELOW = 'frac_below'
+
+    def __init__(self, *, name, counts_processor_name, threshold):
+        super(CountsThresholdPointProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT)
+        self.count_processor_name = counts_processor_name
+        self.threshold = threshold
+
+    def process_point(self, point, datamodel):
+        data_dict = datamodel.data_dict
+        shot_list = datamodel.data_dict['shot_list'][f'point-{point:d}']
+
+        shots_above_list = []
+        shots_below_list = []
+
+        for shot_num in shot_list:
+            shot_key = f'shot-{shot_num:d}'
+            counts = data_dict['shot_processors'][self.count_processor_name]['results'][shot_key]['counts']
+            if counts > self.threshold:
+                shots_above_list.append(counts)
+            elif counts <= self.threshold:
+                shots_below_list.append(counts)
+
+        num_total = len(shot_list)
+
+        num_above = len(shots_above_list)
+        frac_above = num_above / num_total
+
+        num_below = len(shots_below_list)
+        frac_below = num_below / num_total
+
+        results_dict = dict()
+        results_dict[self.ResultKey.THRESHOLD.value] = self.threshold
+        results_dict[self.ResultKey.SHOTS_ABOVE.value] = shots_above_list
+        results_dict[self.ResultKey.NUM_ABOVE.value] = num_above
+        results_dict[self.ResultKey.FRAC_ABOVE.value] = frac_above
+        results_dict[self.ResultKey.SHOTS_BELOW.value] = shots_below_list
+        results_dict[self.ResultKey.NUM_BELOW.value] = num_below
+        results_dict[self.ResultKey.FRAC_BELOW.value] = frac_below
+        return results_dict
+
