@@ -80,23 +80,30 @@ class InputParamLogger:
 
 
 class DataModel:
-    def __init__(self, daily_path, run_name, num_points=1, datastream_list=None, shot_processor_list=None,
-                 point_processor_list=None, reporter_list=None, reset_hard=False, quiet=False):
+    def __init__(self, daily_path, run_name, num_points=1,
+                 datastream_list=None,
+                 loader_list=None,
+                 shot_processor_list=None,
+                 point_processor_list=None,
+                 reporter_list=None,
+                 reset_hard=False, quiet=False):
         self.daily_path = daily_path
         self.run_name = run_name
         self.num_points = num_points
         self.datastream_list = to_list(datastream_list)
+        self.loader_list = to_list(loader_list)
         self.shot_processor_list = to_list(shot_processor_list)
         self.point_processor_list = point_processor_list
         self.reporter_list = to_list(reporter_list)
         self.quiet = quiet
 
+        self.loader_dict = dict()
+        for loader in loader_list:
+            loader.set_run(self.daily_path, self.run_name)
+            self.loader_dict[loader.loader_name] = loader
+
         self.datastream_dict = dict()
         self.initialize_datastreams()
-
-        for datastream in datastream_list:
-            datastream.set_run(self.daily_path, self.run_name)
-            self.datastream_dict[datastream.datastream_name] = datastream
 
         self.num_shots = datastream_list[0].num_shots
         if not all([datastream.num_shots == self.num_shots for datastream in datastream_list]):

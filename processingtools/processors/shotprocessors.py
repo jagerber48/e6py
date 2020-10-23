@@ -86,17 +86,13 @@ class AbsorptionShotProcessor(ShotProcessor):
         ABSORPTION_IMAGE = 'absorption_image'
         OD_IMAGE = 'od_image'
 
-    def __init__(self, *, datastream_name, atom_frame_name, bright_frame_name, dark_frame_name,
-                 atom_dict, imaging_system_dict, roi_slice, calc_high_sat, name, reset):
+    def __init__(self, *, loader_name, atom_dict, imaging_system_dict, roi_slice, calc_high_sat, name, reset):
         super(AbsorptionShotProcessor, self).__init__(name=name, weight=ProcessorWeight.HEAVY, reset=reset)
         if imaging_system_dict is None:
             imaging_system_dict = side_imaging_dict
         if atom_dict is None:
             atom_dict = rb_atom_dict
-        self.datastream_name = datastream_name
-        self.atom_frame_name = atom_frame_name
-        self.bright_frame_name = bright_frame_name
-        self.dark_frame_name = dark_frame_name
+        self.loader_name = loader_name
         self.atom_dict = atom_dict
         self.imaging_system_dict = imaging_system_dict
         self.roi_slice = roi_slice
