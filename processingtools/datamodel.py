@@ -2,6 +2,7 @@ from functools import reduce
 import numpy as np
 from pathlib import Path
 import pickle
+from .loader import LoaderType
 
 
 def qprint(text, quiet=False):
@@ -102,28 +103,21 @@ class DataModel:
             loader.set_run(self.daily_path, self.run_name)
             self.loader_dict[loader.loader_name] = loader
 
-        self.datastream_dict = dict()
-        self.initialize_datastreams()
-
-        self.num_shots = datastream_list[0].num_shots
-        if not all([datastream.num_shots == self.num_shots for datastream in datastream_list]):
-            print('Warning, data streams' +
-                  ', '.join([datastream.datastream_name for datastream in datastream_list]) +
-                  f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
+        self.num_shots = 0
+        self.set_num_shots()
 
         self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
         self.set_shot_lists()
 
-    def initialize_datastreams(self):
-        for datastream in self.datastream_list:
-            datastream.set_run(self.daily_path, self.run_name)
-            self.datastream_dict[datastream.datastream_name] = datastream
-
     def set_num_shots(self):
-        self.num_shots = self.datastream_list[0].num_shots
-        if not all([datastream.num_shots == self.num_shots for datastream in self.datastream_list]):
+        raw_loaders = []
+        for loader in self.loader_dict.values():
+            if loader.loader_type == LoaderType.RAW:
+                raw_loaders.append(loader)
+        self.num_shots = raw_loaders[0].num_shots
+        if not all([loader.num_shots == self.num_shots for loader in raw_loaders]):
             print('Warning, data streams' +
-                  ', '.join([datastream.datastream_name for datastream in self.datastream_list]) +
+                  ', '.join([loader.datastream_name for loader in raw_loaders]) +
                   f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
 
     def process(self):

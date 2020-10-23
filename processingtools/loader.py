@@ -1,12 +1,26 @@
+from enum import Enum
 from functools import reduce
 from pathlib import Path
 import h5py
 from .datamodel import InputParamLogger
 
 
+class LoaderType(Enum):
+    RAW = 'raw'
+    LIGHT = 'light'
+    HEAVY = 'heavy'
+
+
 class Loader(InputParamLogger):
-    def __init__(self, *, loader_name):
+    def __init__(self, *, loader_name, loader_type):
         self.loader_name = loader_name
+        self.loader_type = loader_type
+        self.daily_path = None
+        self.run_name = None
+
+    def set_run(self, daily_path, run_name):
+        self.daily_path = daily_path
+        self.run_name = run_name
 
     @staticmethod
     def reduce_datasource_by_key(dataframe, keychain):
@@ -19,14 +33,15 @@ class Loader(InputParamLogger):
 
 class RawLoader(Loader):
     def __init__(self, *, loader_name, datastream_name, file_prefix):
-        super(RawLoader, self).__init__(loader_name=loader_name)
+        super(RawLoader, self).__init__(loader_name=loader_name, loader_type=LoaderType.RAW)
         self.datastream_name = datastream_name
         self.file_prefix = file_prefix
         self.data_path = None
         self.num_shots = None
 
     def set_run(self, daily_path, run_name):
-        self.data_path = Path(daily_path, 'data', run_name, self.datastream_name)
+        super(RawLoader, self).set_run(daily_path, run_name)
+        self.data_path = Path(self.daily_path, 'data', self.run_name, self.datastream_name)
         self.num_shots = self.get_num_shots()
 
     def get_num_shots(self):
@@ -66,9 +81,9 @@ class AbsorptionLoader(RawLoader):
 
 
 class LightLoader(Loader):
-    def __init__(self, *, loader_name, processor_name):
-        super(LightLoader, self).__init__(loader_name=loader_name)
-        self.processor_name = processor_name
+    def __init__(self, *, loader_name, keychain):
+        super(LightLoader, self).__init__(loader_name=loader_name, loader_type=LoaderType.LIGHT)
+        self.keychain = keychain
 
     def load_shot(self, shot_num):
         raise NotImplementedError
