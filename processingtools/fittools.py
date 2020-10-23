@@ -76,13 +76,21 @@ def lorentzian_fit_function(x, delta_f, f0, amplitude, offset):
     return amplitude * (delta_f_hwhm**2) / (delta_f_hwhm**2 + detuning**2) + offset
 
 
-def lor_fit(x_data, y_data, param_guess=(1, 0, 1, 0), x_label='Frequency', y_label='Signal', x_units='Hz', y_units='a.u.',
+def lor_fit(x_data, y_data, param_guess=None, x_label='', y_label='Signal', x_units='', y_units='a.u.',
             quiet=False):
     # TODO: Return error bars
-    param_keys = ['delta_f', 'f0', 'amplitude', 'offset']
+    param_keys = ['delta_x', 'x0', 'amplitude', 'offset']
+
+    if param_guess is None:
+        delta_x_guess = (np.nanmax(x_data) - np.nanmin(x_data)) / 2
+        x0_guess = (np.nanmax(x_data) + np.nanmin(x_data)) / 2
+        amplitude_guess = np.nanmax(y_data) - np.nanmin(y_data)
+        offset_guess = np.nanmin(y_data)
+        param_guess=(delta_x_guess, x0_guess, amplitude_guess, offset_guess)
+
     fit_struct = e6_fit(y_data, lorentzian_fit_function, input_data=x_data, param_guess=param_guess, param_keys=param_keys)
     popt = [fit_struct[key]['val'] for key in fit_struct['param_keys']]
-    pcov = fit_struct['cov']
+
     if not quiet:
         print(f'Linewidth (FWHM) = {popt[0]:.2f} {x_units}')
         print(f'Center Frequency = {popt[1]:.2f} {x_units}')

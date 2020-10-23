@@ -10,6 +10,7 @@ from ..imagetools import get_image
 from ..datamodel import qprint
 from .processor import Processor, ProcessorWeight, ProcessorScale
 from ...smart_gaussian2d_fit import fit_gaussian2d
+from ..fittools import lor_fit
 
 
 class ShotProcessor(Processor):
@@ -219,15 +220,12 @@ class HetDemodulationShotProcessor(ShotProcessor):
         output_data_path.mkdir(parents=True, exist_ok=True)
         output_file_path = Path(output_data_path, f'het_analysis_{shot_num:05d}.h5')
 
-        with h5py.File(file_path, 'r') as h5:
-            raw_het = h5[self.channel_name][self.segment_name]
+        raw_het, dt = get_gagescope_trace(file_path, self.channel_name, self.segment_name)
+        num_samples = len(raw_het)
+        t_coord = np.arange(0, num_samples) * dt
 
-            num_samples = len(raw_het)
-            dt = h5[self.channel_name][self.segment_name].attrs['dx']
-            t_coord = np.arange(0, num_samples) * dt
-
-            raw_het_xr = xr.DataArray(raw_het, coords={'time': t_coord}, dims=['time'])
-            I_het, Q_het, A_het, phi_het, time_series = self.demodulate(raw_het_xr, self.downsample_rate, dt)
+        raw_het_xr = xr.DataArray(raw_het, coords={'time': t_coord}, dims=['time'])
+        I_het, Q_het, A_het, phi_het, time_series = self.demodulate(raw_het_xr, self.downsample_rate, dt)
 
         with h5py.File(str(output_file_path), 'w') as hf:
             hf.create_dataset('I_het', data=I_het.astype('float'))
@@ -285,42 +283,65 @@ class AbsorptionGaussianFitShotProcessor(ShotProcessor):
 
 
 # noinspection PyPep8Naming
-# class CavSweepShotProcessor(ShotProcessor):
-#     class ResultKey(Enum):
-#         GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
-#
-#     def __init__(self, *, het_demod_processor_name, vco_channel_name, segment_name, name, reset):
-#         super(CavSweepShotProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT, reset=reset)
-#         self.het_demod_processor_name = het_demod_processor_name
-#         self.vco_channel_name = vco_channel_name
-#         self.segment_name = segment_name
-#
-#     def process_shot(self, shot_num, datamodel):
-#         shot_key = f'shot-{shot_num:d}'
-#         data_dict = datamodel.data_dict
-#         het_demod_processor_dict = data_dict['shot_processors'][self.het_demod_processor_name]
-#
-#         A_het, het_time_data = self.get_A_het_trace(het_demod_processor_dict, shot_key)
-#         interp_func = interp1d(het_time_data, het_time_data)
-#
-#         vco_datastream_name = (het_demod_processor_dict['input_param_dict']['kwargs']['datastream_name'])
-#         datastream = datamodel.datastream_dict[vco_datastream_name]
-#         raw_het_file_path = datastream.get_file_path(shot_num)
-#
-#         vco_trace = h5py.File(file_path, 'r')[self.vco_channel_name][self.segment_name]
-#         freq_trace = self.vco_v_to_f(vco_trace)
-#
-#     @staticmethod
-#     def get_A_het_trace(het_demod_processor_dict, shot_key):
-#         het_demod_file_path = het_demod_processor_dict['results'][shot_key]['result_file_path']
-#         time_data = h5py.File(het_demod_file_path, 'r')['time_series']
-#         A_het = h5py.File(het_demod_file_path, 'r')['A_het']
-#         return A_het, time_data
-#
-#     get_VCO_trace
-#
-#     @staticmethod
-#     def vco_v_to_f(volt):
-#         # Calibration taken from
-#         freq = 2 * (62.970 * volt + 42.014)
-#         return freq
+class CavSweepFitShotProcessor(ShotProcessor):
+    class ResultKey(Enum):
+        LOR_FIT_STRUCT = 'lor_fit_struct'
+
+    def __init__(self, *, het_demod_processor_name, vco_channel_name, name, reset):
+        super(CavSweepFitShotProcessor, self).__init__(name=name, weight=ProcessorWeight.LIGHT, reset=reset)
+        self.het_demod_processor_name = het_demod_processor_name
+        self.vco_channel_name = vco_channel_name
+
+    def process_shot(self, shot_num, datamodel):
+        shot_key = f'shot-{shot_num:d}'
+        data_dict = datamodel.data_dict
+        het_demod_processor_dict = data_dict['shot_processors'][self.het_demod_processor_name]
+
+        A_het, het_time_trace = self.get_A_het_trace(het_demod_processor_dict, shot_key)
+        vco_trace, vco_time_trace = self.get_vco_trace(datamodel, het_demod_processor_dict, shot_num)
+
+        interp_func = interp1d(vco_time_trace, vco_trace)
+        vco_trace_interp = interp_func(het_time_trace)
+
+        fit_struct = lor_fit(vco_trace_interp, A_het, quiet=True)
+        results_dict = {self.ResultKey.LOR_FIT_STRUCT.value: fit_struct}
+        return results_dict
+
+    @staticmethod
+    def get_A_het_trace(het_demod_processor_dict, shot_key):
+        het_demod_file_path = het_demod_processor_dict['results'][shot_key]['result_file_path']
+        time_trace = h5py.File(het_demod_file_path, 'r')['time_series']
+        A_het = h5py.File(het_demod_file_path, 'r')['A_het']
+        return A_het, time_trace
+
+    def get_vco_trace(self, datamodel, het_demod_processor_dict, shot_num):
+        datastream_name = (het_demod_processor_dict['input_param_dict']['kwargs']['datastream_name'])
+        datastream = datamodel.datastream_dict[datastream_name]
+
+        segment_name = het_demod_processor_dict['input_param_dict']['kwargs']['segment_name']
+
+        vco_file_path = datastream.get_file_path(shot_num)
+        vco_trace, dt = get_gagescope_trace(vco_file_path, self.vco_channel_name, segment_name)
+        num_samples = len(vco_trace)
+        time_trace = np.arange(0, num_samples) * dt
+        vco_trace = self.vco_v_to_f(vco_trace)
+        return vco_trace, time_trace
+
+    @staticmethod
+    def vco_v_to_f(volt):
+        # Calibration taken from
+        freq = 2 * (62.970 * volt + 42.014)
+        return freq
+
+
+def get_gagescope_trace(file_path, channel_name, segment_name):
+    h5 = h5py.File(file_path, 'r')
+    channel_data = h5[channel_name]
+    sample_offset = channel_data.attrs['sample_offset']
+    sample_res = channel_data.attrs['sample_res']
+    sample_range = channel_data.attrs['input_range']
+    offset_v = channel_data.attrs['dc_offset']
+    data = channel_data[segment_name]
+    scaled_data = ((sample_offset - data) / sample_res) * (sample_range / 2000.0) + offset_v
+    dt = data.attrs['dx']
+    return scaled_data, dt

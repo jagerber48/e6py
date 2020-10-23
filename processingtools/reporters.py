@@ -6,7 +6,7 @@ from .datamodel import dataset_from_keychain
 
 
 class Reporter:
-    def __init__(self, reporter_name):
+    def __init__(self, *, reporter_name):
         self.reporter_name = reporter_name
 
     def report(self, datamodel):
@@ -14,8 +14,8 @@ class Reporter:
 
 
 class AtomRefCountsReporter(Reporter):
-    def __init__(self, atom_counts_processor_name, ref_counts_processor_name, reporter_name='counts_reporter'):
-        super(AtomRefCountsReporter, self).__init__(reporter_name)
+    def __init__(self, *, atom_counts_processor_name, ref_counts_processor_name, reporter_name='counts_reporter'):
+        super(AtomRefCountsReporter, self).__init__(reporter_name=reporter_name)
         self.atom_counts_processor_name = atom_counts_processor_name
         self.ref_counts_processor_name = ref_counts_processor_name
 
