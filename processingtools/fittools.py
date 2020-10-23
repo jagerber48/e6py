@@ -18,7 +18,7 @@ def make_fit_param_dict(name, val, std, conf_level=erf(1 / np.sqrt(2)), dof=None
     return pdict
 
 
-def create_fit_struct(fit_func, input_data, output_data, popt_dict, pcov, conf_level, dof):
+def create_fit_struct(fit_func, input_data, output_data, popt_dict, pcov, conf_level, dof, lightweight=False):
     model_data = fit_func(input_data, **popt_dict)
     fit_struct = dict()
     fit_struct_param_keys = []
@@ -28,14 +28,15 @@ def create_fit_struct(fit_func, input_data, output_data, popt_dict, pcov, conf_l
         fit_struct_param_keys.append(key)
     fit_struct['param_keys'] = fit_struct_param_keys
     fit_struct['cov'] = pcov
-    fit_struct['input_data'] = input_data
-    fit_struct['output_data'] = output_data
+    if not lightweight:
+        fit_struct['input_data'] = input_data
+        fit_struct['output_data'] = output_data
     fit_struct['model'] = model_data
     return fit_struct
 
 
 def e6_fit(output_data, fit_func, param_guess, input_data=None, param_keys=None, conf_level=erf(1 / np.sqrt(2)),
-           *args, **kwargs):
+           lightweight=False, *args, **kwargs):
     if param_keys is None:
         param_keys = []
         for idx, param in enumerate(param_guess):
@@ -66,7 +67,8 @@ def e6_fit(output_data, fit_func, param_guess, input_data=None, param_keys=None,
         print(e)
         cov = 0 * jac
 
-    fit_struct = create_fit_struct(fit_func, input_data, output_data, popt_dict, cov, conf_level, dof)
+    fit_struct = create_fit_struct(fit_func, input_data, output_data, popt_dict, cov, conf_level, dof,
+                                   lightweight=lightweight)
     return fit_struct
 
 
