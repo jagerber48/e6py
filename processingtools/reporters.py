@@ -144,8 +144,9 @@ class AvgRndmImgReporter(Reporter):
 
 
 class AllShotsReporter(Reporter):
-    def __init__(self, *, reporter_name):
+    def __init__(self, *, reporter_name, reset):
         super(AllShotsReporter, self).__init__(reporter_name=reporter_name)
+        self.reset = reset
 
     def report(self, datamodel):
         data_dict = datamodel.data_dict
@@ -154,7 +155,6 @@ class AllShotsReporter(Reporter):
 
         daily_path = data_dict['daily_path']
         save_dir = Path(daily_path, 'analysis', run_name, 'reporters', self.reporter_name)
-        save_dir.mkdir(parents=True, exist_ok=True)
 
         for point in range(num_points):
             point_key = f'point-{point:d}'
@@ -162,20 +162,29 @@ class AllShotsReporter(Reporter):
             for shot_num in shot_list:
                 loop_num, _ = shot_to_loop_and_point(shot=shot_num, num_points=num_points)
                 plot_title = f'{self.reporter_name} - {run_name} - {point_key} - loop-{loop_num} - shot-{shot_num}'
-                fig = self.report_shot(shot_num, datamodel)
-                fig.suptitle(plot_title, fontsize=16)
-                # fig.tight_layout(rect=[0, 0.03, 1, 0.95])
-                save_file_name = Path(save_dir, f'{self.reporter_name}_{shot_num:05d}.png')
-                fig.savefig(save_file_name)
-                plt.close(fig)
+                save_file_path = Path(save_dir, point_key, f'{self.reporter_name}_{shot_num:05d}.png')
+                if not save_file_path.exists() or self.reset:
+                    fig = self.report_shot(shot_num, datamodel)
+                    fig.suptitle(plot_title, fontsize=16)
+                    # fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+                    save_file_path.parent.mkdir(parents=True, exist_ok=True)
+                    fig.savefig(save_file_path)
+                    plt.close(fig)
 
     def report_shot(self, shot_num, datamodel):
         raise NotImplementedError
 
 
+class ImageAllShotsReporter(AllShotsReporter):
+    def __init__(self, *, reporter_name, image_dir_path, file_prefix, image_name, reset):
+        super(ImageAllShotsReporter, self).__init__(reporter_name=reporter_name, reset=reset)
+        self.image_dir_path = image_dir_path
+        self.file_prefix = file_prefix
+
+
 class GaussianFitAllShotsReporter(AllShotsReporter):
-    def __init__(self, *, reporter_name, gaussian_fit_processor):
-        super(GaussianFitAllShotsReporter, self).__init__(reporter_name=reporter_name)
+    def __init__(self, *, reporter_name, gaussian_fit_processor, reset):
+        super(GaussianFitAllShotsReporter, self).__init__(reporter_name=reporter_name, reset=reset)
         self.gaussian_fit_processor = gaussian_fit_processor
 
     # noinspection PyPep8Naming
@@ -258,8 +267,8 @@ class GaussianFitAllShotsReporter(AllShotsReporter):
 
 
 class LorFitAllShotsReporter(AllShotsReporter):
-    def __init__(self, *, reporter_name, lor_fit_processor, x_label, x_units, y_label, y_units):
-        super(LorFitAllShotsReporter, self).__init__(reporter_name=reporter_name)
+    def __init__(self, *, reporter_name, lor_fit_processor, x_label, x_units, y_label, y_units, reset):
+        super(LorFitAllShotsReporter, self).__init__(reporter_name=reporter_name, reset=reset)
         self.lor_fit_processor = lor_fit_processor
         self.x_label = x_label
         self.x_units = x_units
@@ -296,8 +305,8 @@ class LorFitAllShotsReporter(AllShotsReporter):
 
 class HetDemodAllShotsReporter(AllShotsReporter):
     def __init__(self, *, reporter_name, atom_het_demod_processor, ref_het_demod_processor,
-                 t_start=None, t_stop=None):
-        super(HetDemodAllShotsReporter, self).__init__(reporter_name=reporter_name)
+                 t_start=None, t_stop=None, reset=False):
+        super(HetDemodAllShotsReporter, self).__init__(reporter_name=reporter_name, reset=reset)
         self.atom_het_demod_processor = atom_het_demod_processor
         self.ref_het_demod_processor = ref_het_demod_processor
         self.t_start = t_start

@@ -120,6 +120,7 @@ class DataModel:
                   f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
 
     def process(self):
+        qprint(f'***Processing run: {self.run_name}***', quiet=self.quiet)
         if 'shot_processors' not in self.data_dict:
             self.data_dict['shot_processors'] = dict()
         for shot_processor in self.shot_processor_list:
@@ -159,17 +160,21 @@ class DataModelDict:
     def __init__(self, daily_path, run_name, reset_hard=False, quiet=False):
         self.daily_path = daily_path
         self.run_name = run_name
+        self.quiet=quiet
         self.dir_path = Path(self.daily_path, 'analysis', self.run_name)
         self.dir_path.mkdir(parents=True, exist_ok=True)
         self.filename = f'{run_name}-datamodel.p'
         self.file_path = Path(self.dir_path, self.filename)
         if not reset_hard:
-            self.data_dict = self.load_dict(quiet=quiet)
+            self.data_dict = self.load_dict(quiet=self.quiet)
         else:
-            self.data_dict = dict()
-            self.data_dict['daily_path'] = daily_path
-            self.data_dict['run_name'] = run_name
-            self.save_dict(quiet=quiet)
+            self.create_dict()
+
+    def create_dict(self):
+        self.data_dict = dict()
+        self.data_dict['daily_path'] = self.daily_path
+        self.data_dict['run_name'] = self.run_name
+        self.save_dict(quiet=self.quiet)
 
     def load_dict(self, quiet=False):
         try:
@@ -178,8 +183,7 @@ class DataModelDict:
         except (FileNotFoundError, EOFError) as e:
             qprint(e, quiet=quiet)
             qprint(f'Creating {self.filename} in {self.dir_path}', quiet=quiet)
-            self.data_dict = dict()
-            self.save_dict()
+            self.create_dict()
         return self.data_dict
 
     def save_dict(self, quiet=False):

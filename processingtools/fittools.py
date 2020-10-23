@@ -31,7 +31,7 @@ def create_fit_struct(fit_func, input_data, output_data, popt_dict, pcov, conf_l
     if not lightweight:
         fit_struct['input_data'] = input_data
         fit_struct['output_data'] = output_data
-    fit_struct['model'] = model_data
+        fit_struct['model'] = model_data
     return fit_struct
 
 
@@ -79,7 +79,7 @@ def lorentzian_fit_function(x, delta_x, x0, amplitude, offset):
 
 
 def lor_fit(x_data, y_data, param_guess=None, x_label='', y_label='Signal', x_units='', y_units='a.u.',
-            quiet=False):
+            quiet=False, lightweight=False):
     # TODO: Return error bars
     param_keys = ['delta_x', 'x0', 'amplitude', 'offset']
 
@@ -90,7 +90,8 @@ def lor_fit(x_data, y_data, param_guess=None, x_label='', y_label='Signal', x_un
         offset_guess = np.nanmin(y_data)
         param_guess=(delta_x_guess, x0_guess, amplitude_guess, offset_guess)
 
-    fit_struct = e6_fit(y_data, lorentzian_fit_function, input_data=x_data, param_guess=param_guess, param_keys=param_keys)
+    fit_struct = e6_fit(y_data, lorentzian_fit_function, input_data=x_data,
+                        param_guess=param_guess, param_keys=param_keys, lightweight=lightweight)
     popt = [fit_struct[key]['val'] for key in fit_struct['param_keys']]
 
     if not quiet:

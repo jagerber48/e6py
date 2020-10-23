@@ -11,7 +11,7 @@ from ..datamodel import qprint
 from ..datastreamtools import get_gagescope_trace
 from .processor import Processor, ProcessorWeight, ProcessorScale
 from ...smart_gaussian2d_fit import fit_gaussian2d
-from ..fittools import lor_fit
+from ..fittools import lor_fit, lorentzian_fit_function
 
 
 class ShotProcessor(Processor):
