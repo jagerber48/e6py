@@ -3,12 +3,7 @@ from functools import reduce
 from pathlib import Path
 import h5py
 from .datamodel import InputParamLogger
-
-
-class LoaderType(Enum):
-    RAW = 'raw'
-    LIGHT = 'light'
-    HEAVY = 'heavy'
+from .config import LoaderType
 
 
 class Loader(InputParamLogger):

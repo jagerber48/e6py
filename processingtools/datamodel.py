@@ -2,7 +2,7 @@ from functools import reduce
 import numpy as np
 from pathlib import Path
 import pickle
-from .loader import LoaderType
+from .config import LoaderType
 
 
 def qprint(text, quiet=False):
