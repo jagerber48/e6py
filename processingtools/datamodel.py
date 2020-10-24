@@ -158,6 +158,21 @@ class DataModel:
         self.data_dict.save_dict()
 
 
+class DataField:
+    def __init__(self, key, type):
+        self.key = key
+        self.type = type
+
+class ShotDataField:
+    def __init__(self, key, type):
+        self.key = key
+        self.type = type
+
+    def get_data(self, shot_num, datamodel):
+        data_dict = datamodel.data_dict
+        data_dict['shot_processors']
+
+
 class DataModelDict:
     def __init__(self, daily_path, run_name, reset_hard=False, quiet=False):
         self.daily_path = daily_path

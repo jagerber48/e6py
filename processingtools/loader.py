@@ -61,6 +61,8 @@ class RawLoader(Loader):
         raise NotImplementedError
 
 
+class FrameLoader(RawLoader)
+
 class AbsorptionLoader(RawLoader):
     def __init__(self, *, loader_name, datastream_name, file_prefix,
                  atom_frame_keychain, bright_frame_keychain, dark_frame_keychain, roi_slice):

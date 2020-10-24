@@ -9,7 +9,7 @@ import xarray as xr
 from ..imagetools import get_image
 from ..datamodel import qprint
 from ..datastreamtools import get_gagescope_trace
-from .processor import Processor, ProcessorWeight, ProcessorScale
+from .processor import Processor, ProcessorScale
 from ...smart_gaussian2d_fit import fit_gaussian2d
 from ..fittools import lor_fit, lorentzian_fit_function
 
@@ -18,20 +18,22 @@ class ShotProcessor(Processor):
     class ResultKey(Enum):
         pass
 
-    def __init__(self, *, processor_name, weight, reset):
-        super(ShotProcessor, self).__init__(processor_name=processor_name, weight=weight, scale=ProcessorScale.SHOT)
+    def __init__(self, *, processor_name, data_target_name, reset):
+        super(ShotProcessor, self).__init__(processor_name=processor_name,
+                                            data_target_name=data_target_name,
+                                            scale=ProcessorScale.SHOT)
         self.reset = reset
 
-    def scaled_process(self, datamodel, processor_dict, quiet=False):
+    def scaled_process(self, datamodel, target_dict, quiet=False):
         data_dict = datamodel.data_dict
 
         num_shots = data_dict['num_shots']
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
-            if shot_key not in processor_dict['results'] or self.reset:
+            if shot_key not in target_dict['results'] or self.reset:
                 qprint(f'processing {shot_key}', quiet=quiet)
                 results_dict = self.process_shot(shot_num, datamodel)
-                processor_dict['results'][shot_key] = results_dict
+                target_dict['results'][shot_key] = results_dict
                 data_dict.save_dict(quiet=True)
             else:
                 qprint(f'skipping processing {shot_key}', quiet=quiet)
@@ -44,14 +46,19 @@ class CountsShotProcessor(ShotProcessor):
     class ResultKey(Enum):
         COUNTS = 'counts'
 
-    def __init__(self, *, datastream_name, frame_name, roi_slice, processor_name, reset):
-        super(CountsShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.LIGHT, reset=reset)
-        self.datastream_name = datastream_name
+    def __init__(self, *, processor_name, data_target_name, loader_name, frame_name, roi_slice, reset):
+        super(CountsShotProcessor, self).__init__(processor_name=processor_name,
+                                                  data_target_name=data_target_name,
+                                                  reset=reset)
+        self.loader_name = loader_name
         self.frame_name = frame_name
         self.roi_slice = roi_slice
 
     def process_shot(self, shot_num, datamodel):
-        datastream = datamodel.datastream_dict[self.datastream_name]
+        loader = datamodel.loader_dict[self.loader_name]
+
+
+
         file_path = datastream.get_file_path(shot_num)
         frame = get_image(file_path, self.frame_name, roi_slice=self.roi_slice)
         counts = np.nansum(frame)
