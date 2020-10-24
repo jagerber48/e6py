@@ -19,6 +19,11 @@ class RawDataStream(InputParamLogger):
         file_path = Path(self.data_path, file_name)
         return file_path
 
+    def load_shot_h5(self, shot_num=0):
+        file_name = f'{self.file_prefix}_{shot_num:05d}.h5'
+        h5_file = h5py.File(file_name, 'r')
+        return h5_file
+
     def get_num_shots(self):
         file_list = list(self.data_path.glob('*.h5'))
         self.num_shots = len(file_list)

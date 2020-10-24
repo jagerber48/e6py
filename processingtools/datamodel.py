@@ -2,7 +2,6 @@ from functools import reduce
 import numpy as np
 from pathlib import Path
 import pickle
-from .config import LoaderType
 
 
 def qprint(text, quiet=False):
@@ -76,49 +75,48 @@ class InputParamLogger:
     def __new__(cls, *args, **kwargs):
         input_param_dict = {'args': args, 'kwargs': kwargs}
         obj = super(InputParamLogger, cls).__new__(cls)
-        input_param_dict['class_name'] = type(obj).__name__
         obj.input_param_dict = input_param_dict
         return obj
 
 
 class DataModel:
-    def __init__(self, daily_path, run_name, num_points=1,
-                 datastream_list=None,
-                 loader_list=None,
-                 shot_processor_list=None,
-                 point_processor_list=None,
-                 reporter_list=None,
-                 reset_hard=False, quiet=False):
+    def __init__(self, daily_path, run_name, num_points=1, datastream_list=None, shot_processor_list=None,
+                 point_processor_list=None, reporter_list=None, reset_hard=False, quiet=False):
         self.daily_path = daily_path
         self.run_name = run_name
         self.num_points = num_points
         self.datastream_list = to_list(datastream_list)
-        self.loader_list = to_list(loader_list)
         self.shot_processor_list = to_list(shot_processor_list)
         self.point_processor_list = point_processor_list
         self.reporter_list = to_list(reporter_list)
         self.quiet = quiet
 
-        self.loader_dict = dict()
-        for loader in self.loader_list:
-            loader.set_run(self.daily_path, self.run_name)
-            self.loader_dict[loader.loader_name] = loader
+        self.datastream_dict = dict()
+        self.initialize_datastreams()
 
-        self.num_shots = 0
-        self.set_num_shots()
+        for datastream in datastream_list:
+            datastream.set_run(self.daily_path, self.run_name)
+            self.datastream_dict[datastream.datastream_name] = datastream
+
+        self.num_shots = datastream_list[0].num_shots
+        if not all([datastream.num_shots == self.num_shots for datastream in datastream_list]):
+            print('Warning, data streams' +
+                  ', '.join([datastream.datastream_name for datastream in datastream_list]) +
+                  f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
 
         self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
         self.set_shot_lists()
 
+    def initialize_datastreams(self):
+        for datastream in self.datastream_list:
+            datastream.set_run(self.daily_path, self.run_name)
+            self.datastream_dict[datastream.datastream_name] = datastream
+
     def set_num_shots(self):
-        raw_loaders = []
-        for loader in self.loader_dict.values():
-            if loader.loader_type == LoaderType.RAW:
-                raw_loaders.append(loader)
-        self.num_shots = raw_loaders[0].num_shots
-        if not all([loader.num_shots == self.num_shots for loader in raw_loaders]):
+        self.num_shots = self.datastream_list[0].num_shots
+        if not all([datastream.num_shots == self.num_shots for datastream in self.datastream_list]):
             print('Warning, data streams' +
-                  ', '.join([loader.datastream_name for loader in raw_loaders]) +
+                  ', '.join([datastream.datastream_name for datastream in self.datastream_list]) +
                   f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
 
     def process(self):
@@ -156,21 +154,6 @@ class DataModel:
             self.data_dict['shot_list'][key] = point_shots
             self.data_dict['loop_nums'][key] = point_loops
         self.data_dict.save_dict()
-
-
-class DataField:
-    def __init__(self, key, type):
-        self.key = key
-        self.type = type
-
-class ShotDataField:
-    def __init__(self, key, type):
-        self.key = key
-        self.type = type
-
-    def get_data(self, shot_num, datamodel):
-        data_dict = datamodel.data_dict
-        data_dict['shot_processors']
 
 
 class DataModelDict:
