@@ -19,7 +19,7 @@ class ShotProcessor(Processor):
         pass
 
     def __init__(self, *, processor_name, weight, reset):
-        super(ShotProcessor, self).__init__(name=processor_name, weight=weight, scale=ProcessorScale.SHOT)
+        super(ShotProcessor, self).__init__(processor_name=processor_name, weight=weight, scale=ProcessorScale.SHOT)
         self.reset = reset
 
     def scaled_process(self, datamodel, processor_dict, quiet=False):
@@ -209,7 +209,7 @@ class HetDemodulationShotProcessor(ShotProcessor):
         datastream = datamodel.datastream_dict[self.datastream_name]
         file_path = datastream.get_file_path(shot_num)
         output_data_path = Path(datamodel.daily_path, 'analysis',
-                                datamodel.run_name, self.name)
+                                datamodel.run_name, self.processor_name)
         output_data_path.mkdir(parents=True, exist_ok=True)
         output_file_path = Path(output_data_path, f'het_analysis_{shot_num:05d}.h5')
 

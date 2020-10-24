@@ -17,13 +17,21 @@ class Loader(InputParamLogger):
         self.daily_path = daily_path
         self.run_name = run_name
 
+    def extract_data(self, datamodel):
+        raise NotImplementedError
+
+    def arrange_data(self, data):
+        raise NotImplementedError
+
     @staticmethod
     def reduce_datasource_by_key(dataframe, keychain):
         data = reduce(lambda x, y: x[y], keychain.split('/'), dataframe)
         return data
 
-    def load_shot(self, shot_num):
-        raise NotImplementedError
+    def load_shot(self, shot_num, datamodel):
+        extracted_data = self.extract_data(datamodel)
+        arranged_data = self.arrange_data(extracted_data)
+        return arranged_data
 
 
 class RawLoader(Loader):
@@ -76,12 +84,25 @@ class AbsorptionLoader(RawLoader):
 
 
 class LightLoader(Loader):
-    def __init__(self, *, loader_name, keychain):
+    def __init__(self, *, loader_name):
         super(LightLoader, self).__init__(loader_name=loader_name, loader_type=LoaderType.LIGHT)
-        self.keychain = keychain
+        self.datamodel = None
+
+    def set_datamodel(self, datamodel):
+        self.datamodel = datamodel
 
     def load_shot(self, shot_num):
         raise NotImplementedError
+
+
+class ProcessorResultsLoader(LightLoader):
+    def __init__(self, *, loader_name, processor_name, result_keychain):
+        super(ProcessorResultsLoader, self).__init__(loader_name=loader_name)
+        self.processor_name = processor_name
+
+    def load_shot(self, shot_num):
+        data_dict = self.datamodel.data_dict
+        result = data_dict
 
 
 class HeavyProcessedLoader(Loader):

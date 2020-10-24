@@ -76,6 +76,7 @@ class InputParamLogger:
     def __new__(cls, *args, **kwargs):
         input_param_dict = {'args': args, 'kwargs': kwargs}
         obj = super(InputParamLogger, cls).__new__(cls)
+        input_param_dict['class_name'] = type(obj).__name__
         obj.input_param_dict = input_param_dict
         return obj
 
