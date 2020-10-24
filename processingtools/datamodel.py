@@ -87,7 +87,7 @@ class DataModel:
         self.num_points = num_points
         self.datastream_list = to_list(datastream_list)
         self.shot_processor_list = to_list(shot_processor_list)
-        self.point_processor_list = point_processor_list
+        self.point_processor_list = to_list(point_processor_list)
         self.reporter_list = to_list(reporter_list)
         self.quiet = quiet
 
@@ -161,7 +161,6 @@ class DataField:
         self.field_name = field_name
         self.data_source_name = data_source_name
         self.datamodel = datamodel
-        self.data_dict = self.datamodel.data_dict
 
     @staticmethod
     def reduce_by_keychain(target_dict, keychain):
@@ -183,6 +182,7 @@ class DataDictField(DataField):
     def __init__(self, *, datamodel, field_name, data_source_name, scale):
         super(DataDictField, self).__init__(datamodel=datamodel, data_source_name=data_source_name,
                                             field_name=field_name, )
+        self.data_dict = self.datamodel.data_dict
         self.scale = scale
 
     @staticmethod
