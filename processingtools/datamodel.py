@@ -157,10 +157,10 @@ class DataModel:
 
 
 class DataField:
-    def __init__(self, datamodel, field_name, source_name, keystring):
+    def __init__(self, datamodel, field_name, source_name, keychain):
         self.field_name = field_name
         self.source_name = source_name
-        self.keystring = keystring
+        self.keychain = keychain
         self.datamodel = datamodel
 
     def reduce_by_keychain(self):
