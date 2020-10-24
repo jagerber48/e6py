@@ -156,6 +156,20 @@ class DataModel:
         self.data_dict.save_dict()
 
 
+class DataField:
+    def __init__(self, datamodel, field_name, source_name, keystring):
+        self.field_name = field_name
+        self.source_name = source_name
+        self.keystring = keystring
+        self.datamodel = datamodel
+
+    def reduce_by_keychain(self):
+        data_dict = self.datamodel.data_dict
+        key_list = self.keychain.split('/')
+        data = reduce(lambda x, y: x[y], key_list, data_dict)
+        return data
+
+
 class DataModelDict:
     def __init__(self, daily_path, run_name, reset_hard=False, quiet=False):
         self.daily_path = daily_path
