@@ -1,12 +1,13 @@
 from pathlib import Path
 import h5py
-from .datamodel import InputParamLogger
+from .datamodel import InputParamLogger, to_list
 
 
 class RawDataStream(InputParamLogger):
-    def __init__(self, *, datastream_name, file_prefix):
+    def __init__(self, *, datastream_name, file_prefix, data_field_dict):
         self.datastream_name = datastream_name
         self.file_prefix = file_prefix
+        self.data_field_dict = data_field_dict
         self.data_path = None
         self.num_shots = None
 

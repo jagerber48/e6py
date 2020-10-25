@@ -3,6 +3,10 @@ import numpy as np
 from pathlib import Path
 import pickle
 
+from future.types import newint
+
+from .datafield import H5DataField
+
 
 def qprint(text, quiet=False):
     if not quiet:
@@ -91,18 +95,11 @@ class DataModel:
         self.reporter_list = to_list(reporter_list)
         self.quiet = quiet
 
+        self.datafield_dict = dict()
+
+        self.num_shots = 0
         self.datastream_dict = dict()
         self.initialize_datastreams()
-
-        for datastream in datastream_list:
-            datastream.set_run(self.daily_path, self.run_name)
-            self.datastream_dict[datastream.datastream_name] = datastream
-
-        self.num_shots = datastream_list[0].num_shots
-        if not all([datastream.num_shots == self.num_shots for datastream in datastream_list]):
-            print('Warning, data streams' +
-                  ', '.join([datastream.datastream_name for datastream in datastream_list]) +
-                  f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
 
         self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
         self.set_shot_lists()
@@ -111,13 +108,28 @@ class DataModel:
         for datastream in self.datastream_list:
             datastream.set_run(self.daily_path, self.run_name)
             self.datastream_dict[datastream.datastream_name] = datastream
-
-    def set_num_shots(self):
-        self.num_shots = self.datastream_list[0].num_shots
+            for field_name in datastream.data_field_dict:
+                h5_subpath = datastream.data_field_dict[field_name]
+                new_datafield = H5DataField(datamodel=self, data_source_name=datastream.datastream_name,
+                                            field_name=field_name, file_prefix=datastream.file_prefix,
+                                            h5_subpath=h5_subpath)
+                self.add_data_field(new_datafield)
+                
+        self.num_shots = self.datastream_list[0].num_shots()
         if not all([datastream.num_shots == self.num_shots for datastream in self.datastream_list]):
             print('Warning, data streams' +
                   ', '.join([datastream.datastream_name for datastream in self.datastream_list]) +
                   f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
+
+    def add_data_field(self, datafield):
+        self.datafield_dict[datafield.field_name] = datafield
+
+    def get_data(self, datafield_name, shot_num):
+        data = self.datafield_dict[datafield_name].get_data(shot_num)
+        return data
+
+    def set_data(self, datafield_name, shot_num, data):
+        self.datafield_dict[datafield_name].set_data(shot_num, data)
 
     def process(self):
         qprint(f'***Processing run: {self.run_name}***', quiet=self.quiet)
