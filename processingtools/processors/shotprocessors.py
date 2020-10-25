@@ -10,7 +10,7 @@ from ..imagetools import get_image
 from ..datamodel import qprint
 from ..datastreamtools import get_gagescope_trace
 from ..datafield import H5DataField
-from .processor import Processor, ProcessorWeight, ProcessorScale
+from .processor import Processor, ProcessorScale
 from ...smart_gaussian2d_fit import fit_gaussian2d
 from ..fittools import lor_fit
 
@@ -19,8 +19,8 @@ class ShotProcessor(Processor):
     class ResultKey(Enum):
         pass
 
-    def __init__(self, *, processor_name, weight, reset):
-        super(ShotProcessor, self).__init__(processor_name=processor_name, weight=weight, scale=ProcessorScale.SHOT)
+    def __init__(self, *, processor_name, reset):
+        super(ShotProcessor, self).__init__(processor_name=processor_name, scale=ProcessorScale.SHOT)
         self.reset = reset
 
     def scaled_process(self, datamodel, processor_dict, quiet=False):
@@ -46,7 +46,7 @@ class CountsShotProcessor(ShotProcessor):
         COUNTS = 'counts'
 
     def __init__(self, *, datastream_name, frame_name, roi_slice, processor_name, reset):
-        super(CountsShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.LIGHT, reset=reset)
+        super(CountsShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
         self.datastream_name = datastream_name
         self.frame_name = frame_name
         self.roi_slice = roi_slice
@@ -89,7 +89,7 @@ class AbsorptionShotProcessor(ShotProcessor):
 
     def __init__(self, *, datastream_name, atom_frame_name, bright_frame_name, dark_frame_name,
                  atom_dict, imaging_system_dict, roi_slice, calc_high_sat, processor_name, reset):
-        super(AbsorptionShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.HEAVY, reset=reset)
+        super(AbsorptionShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
         if imaging_system_dict is None:
             imaging_system_dict = side_imaging_dict
         if atom_dict is None:
@@ -233,7 +233,6 @@ class HetDemodulationShotProcessor(ShotProcessor):
             datamodel.add_data_field(new_data_field)
             new_data_field.set_data(shot_num, data)
 
-
     def butter_lowpass_filter(self, data, order, dt):
         nyquist_freq = (1 / 2) * (1 / dt)
         normalized_cutoff = self.bandwidth / nyquist_freq
@@ -266,7 +265,7 @@ class AbsorptionGaussianFitShotProcessor(ShotProcessor):
         GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
 
     def __init__(self, *, source_processor_name, processor_name, reset):
-        super(AbsorptionGaussianFitShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.LIGHT, reset=reset)
+        super(AbsorptionGaussianFitShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
         self.source_processor_name = source_processor_name
 
     def process_shot(self, shot_num, datamodel):
@@ -284,7 +283,7 @@ class CavSweepFitShotProcessor(ShotProcessor):
         LOR_FIT_STRUCT = 'lor_fit_struct'
 
     def __init__(self, *, het_demod_processor_name, vco_channel_name, processor_name, reset):
-        super(CavSweepFitShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.LIGHT, reset=reset)
+        super(CavSweepFitShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
         self.het_demod_processor_name = het_demod_processor_name
         self.vco_channel_name = vco_channel_name
 

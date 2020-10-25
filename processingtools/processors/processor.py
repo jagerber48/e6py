@@ -2,11 +2,6 @@ from enum import Enum
 from ..datamodel import InputParamLogger, qprint
 
 
-class ProcessorWeight(Enum):
-    LIGHT = 'light'
-    HEAVY = 'heavy'
-
-
 class ProcessorScale(Enum):
     SHOT = 'shot'
     POINT = 'point'
@@ -17,15 +12,13 @@ class Processor(InputParamLogger):
     class ResultKey(Enum):
         pass
 
-    def __init__(self, *, processor_name, weight, scale):
+    def __init__(self, *, processor_name, scale):
         self.processor_name = processor_name
-        self.weight = weight
         self.scale = scale
 
     def create_processor_dict(self, data_dict):
         processor_dict = dict()
         processor_dict['input_param_dict'] = self.input_param_dict
-        processor_dict['weight'] = self.weight
         processor_dict['scale'] = self.scale
         processor_dict['class_name'] = type(self).__name__
         processor_dict['results'] = dict()

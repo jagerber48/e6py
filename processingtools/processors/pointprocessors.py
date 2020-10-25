@@ -2,15 +2,15 @@ import numpy as np
 from enum import Enum
 from ..imagetools import get_image
 from ..datamodel import qprint
-from .processor import Processor, ProcessorScale, ProcessorWeight
+from .processor import Processor, ProcessorScale
 
 
 class PointProcessor(Processor):
     class ResultKey(Enum):
         pass
 
-    def __init__(self, *, processor_name, weight):
-        super(PointProcessor, self).__init__(processor_name=processor_name, weight=weight, scale=ProcessorScale.POINT)
+    def __init__(self, *, processor_name):
+        super(PointProcessor, self).__init__(processor_name=processor_name, scale=ProcessorScale.POINT)
 
     def scaled_process(self, datamodel, processor_dict, quiet=False):
         data_dict = datamodel.data_dict
@@ -41,7 +41,7 @@ class MeanStdPointProcessor(PointProcessor):
         pass
 
     def __init__(self, *, processor_name, source_processor_name):
-        super(MeanStdPointProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.LIGHT)
+        super(MeanStdPointProcessor, self).__init__(processor_name=processor_name)
         self.source_processor_name = source_processor_name
 
     def process_point(self, point, datamodel):
@@ -92,7 +92,7 @@ class AvgAtomRefImagePointProcessor(PointProcessor):
         AVERAGE_REF_IMG = 'avg_ref_img'
 
     def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice, processor_name):
-        super(AvgAtomRefImagePointProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.LIGHT)
+        super(AvgAtomRefImagePointProcessor, self).__init__(processor_name=processor_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
@@ -132,7 +132,7 @@ class RandomAtomRefImagePointProcessor(PointProcessor):
 
     def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
                  processor_name):
-        super(RandomAtomRefImagePointProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.LIGHT)
+        super(RandomAtomRefImagePointProcessor, self).__init__(processor_name=processor_name)
         self.datastream_name = datastream_name
         self.atom_frame_name = atom_frame_name
         self.ref_frame_name = ref_frame_name
@@ -168,7 +168,7 @@ class CountsThresholdPointProcessor(PointProcessor):
         FRAC_BELOW = 'frac_below'
 
     def __init__(self, *, processor_name, counts_processor_name, threshold):
-        super(CountsThresholdPointProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.LIGHT)
+        super(CountsThresholdPointProcessor, self).__init__(processor_name=processor_name)
         self.count_processor_name = counts_processor_name
         self.threshold = threshold
 
