@@ -9,6 +9,7 @@ import xarray as xr
 from ..imagetools import get_image
 from ..datamodel import qprint
 from ..datastreamtools import get_gagescope_trace
+from ..datafield import H5DataField
 from .processor import Processor, ProcessorWeight, ProcessorScale
 from ...smart_gaussian2d_fit import fit_gaussian2d
 from ..fittools import lor_fit
@@ -203,8 +204,9 @@ class HetDemodulationShotProcessor(ShotProcessor):
     class ResultKey(Enum):
         RESULT_FILE_PATH = 'result_file_path'
 
-    def __init__(self, *, datastream_name, channel_name, segment_name, carrier_frequency,
-                 bandwidth, downsample_rate, processor_name, reset, input_data_field, output_data_fields):
+    def __init__(self, *, processor_name, raw_het_data_field, output_data_fields,
+                 datastream_name, channel_name, segment_name,
+                 carrier_frequency, bandwidth, downsample_rate, reset):
         super(HetDemodulationShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.HEAVY, reset=reset)
         self.datastream_name = datastream_name
         self.channel_name = channel_name
@@ -212,7 +214,8 @@ class HetDemodulationShotProcessor(ShotProcessor):
         self.carrier_frequency = carrier_frequency
         self.bandwidth = bandwidth
         self.downsample_rate = downsample_rate
-        self.input_data_field = input_data_field
+        self.input_data_field = raw_het_data_field
+        self.output_data_fields = output_data_fields
 
     def process_shot(self, shot_num, datamodel):
         # datastream = datamodel.datastream_dict[self.datastream_name]
@@ -239,6 +242,16 @@ class HetDemodulationShotProcessor(ShotProcessor):
             hf.create_dataset('A_het', data=A_het.astype('float'))
             hf.create_dataset('phi_het', data=phi_het.astype('float'))
             hf.create_dataset('time_series', data=time_series.astype('float'))
+
+        results_dict = {'A_het': A_het, 'phi_het': phi_het, 'I_het': I_het, 'Q_het': Q_het, 'time_het': time_series}
+        for key in results_dict:
+            data = results_dict[key]
+            new_data_field = H5DataField(datamodel=datamodel,
+                                         data_source_name=self.processor_name,
+                                         field_name=self.output_data_fields[0],
+                                         file_prefix='iteration', h5_subpath=key, mode='processed')
+            datamodel.add_data_field(new_data_field)
+            new_data_field.set_data(shot_num, data)
 
         results_dict = dict()
         results_dict[self.ResultKey.RESULT_FILE_PATH.value] = output_file_path

@@ -12,10 +12,10 @@ class RawDataStream(InputParamLogger):
         self.data_path = None
         self.num_shots = None
 
-    def make_data_field(self):
+    def make_data_field(self, datamodel):
         for field_name in self.data_field_dict:
             h5_subpath = self.data_field_dict[field_name]
-            new_datafield = H5DataField(datamodel=self, data_source_name=self.datastream_name,
+            new_datafield = H5DataField(datamodel=datamodel, data_source_name=self.datastream_name,
                                         field_name=field_name, file_prefix=self.file_prefix,
                                         h5_subpath=h5_subpath, mode='raw')
             return new_datafield

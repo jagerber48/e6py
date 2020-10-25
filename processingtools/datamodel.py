@@ -108,7 +108,7 @@ class DataModel:
         for datastream in self.datastream_list:
             datastream.set_run(self.daily_path, self.run_name)
             self.datastream_dict[datastream.datastream_name] = datastream
-            self.add_data_field(datastream.make_data_field())
+            self.add_data_field(datastream.make_data_field(datamodel=self))
 
         self.num_shots = self.datastream_list[0].num_shots
         if not all([datastream.num_shots == self.num_shots for datastream in self.datastream_list]):

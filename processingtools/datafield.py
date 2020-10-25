@@ -44,7 +44,6 @@ class H5DataField(DataField):
         self.dataset_name = subpath_list[-1]
 
     def get_containing_group(self, h5_file):
-        print(self.subgroup_list)
         if len(self.subgroup_list) > 0:
             group_chain = '/'.join(self.subgroup_list)
             h5_file.require_group(group_chain)
@@ -61,7 +60,6 @@ class H5DataField(DataField):
         file_path = self.get_data_file_path(shot_num)
         data_file = h5py.File(file_path, 'r')
         containing_group = self.get_containing_group(data_file)
-        print(containing_group)
         data = containing_group[self.dataset_name]
         return data
 
@@ -70,7 +68,8 @@ class H5DataField(DataField):
             print('Cannot set data in RawH5DataField - this is raw data.')
         elif self.mode == 'processed':
             file_path = self.get_data_file_path(shot_num)
-            data_file = h5py.File(file_path, 'r')
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            data_file = h5py.File(file_path, 'a')
             containing_group = self.get_containing_group(data_file)
             containing_group.create_dataset(self.dataset_name, data=data)
 
