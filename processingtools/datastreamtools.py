@@ -1,7 +1,7 @@
 from pathlib import Path
 import h5py
 from .datamodel import InputParamLogger
-from .datafield import H5DataField
+from .datafield import H5DataField, GageRawDataField
 
 
 class RawDataStream(InputParamLogger):
@@ -39,6 +39,16 @@ class RawDataStream(InputParamLogger):
         self.num_shots = len(file_list)
         return self.num_shots
 
+
+class GageRawDataStream(RawDataStream):
+    def make_data_field(self, datamodel):
+        for field_name in self.data_field_dict:
+            h5_subpath = self.data_field_dict[field_name]
+            new_datafield = GageRawDataField(datamodel=datamodel, data_source_name=self.datastream_name,
+                                             field_name=field_name, file_prefix=self.file_prefix,
+                                             h5_subpath=h5_subpath)
+            return new_datafield
+        
 
 def get_gagescope_trace(file_path, channel_name, segment_name):
     h5 = h5py.File(file_path, 'r')
