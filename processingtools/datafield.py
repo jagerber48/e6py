@@ -73,7 +73,7 @@ class H5DataField(DataField):
             containing_group = self.get_containing_group(data_file)
             try:
                 del containing_group[self.dataset_name]
-            except OSError:
+            except (OSError, KeyError):
                 pass
             containing_group.create_dataset(self.dataset_name, data=data)
 

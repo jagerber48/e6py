@@ -304,11 +304,11 @@ class LorFitAllShotsReporter(AllShotsReporter):
 
 
 class HetDemodAllShotsReporter(AllShotsReporter):
-    def __init__(self, *, reporter_name, atom_het_demod_processor, ref_het_demod_processor,
+    def __init__(self, *, reporter_name, atom_het_datafields, ref_het_datafields,
                  t_start=None, t_stop=None, reset=False):
         super(HetDemodAllShotsReporter, self).__init__(reporter_name=reporter_name, reset=reset)
-        self.atom_het_demod_processor = atom_het_demod_processor
-        self.ref_het_demod_processor = ref_het_demod_processor
+        self.atom_het_datafields = atom_het_datafields
+        self.ref_het_datafields = ref_het_datafields
         self.t_start = t_start
         self.t_stop = t_stop
 
@@ -317,59 +317,65 @@ class HetDemodAllShotsReporter(AllShotsReporter):
         data_dict = datamodel.data_dict
 
         shot_key = f'shot-{shot_num:d}'
-        atom_h5file = (data_dict['shot_processors'][self.atom_het_demod_processor]
-                       ['results'][shot_key]['result_file_path'])
-        ref_h5file = (data_dict['shot_processors'][self.ref_het_demod_processor]
-                      ['results'][shot_key]['result_file_path'])
-        with h5py.File(atom_h5file, 'r') as atom_file:
-            with h5py.File(ref_h5file, 'r') as ref_file:
-                t = atom_file['time_series']
-                if self.t_start is None:
-                    self.t_start = t[0]
-                if self.t_stop is None:
-                    self.t_stop = t[-1]
-                mask = np.logical_and(self.t_start < t, t < self.t_stop)
-                t = t[mask] * 1e3
 
-                fig = plt.figure(figsize=(12, 12))
+        atom_A_het = datamodel.get_data(self.atom_het_datafields[0], shot_num)
+        atom_phi_het = datamodel.get_data(self.atom_het_datafields[1], shot_num)
+        atom_I_het = datamodel.get_data(self.atom_het_datafields[2], shot_num)
+        atom_Q_het = datamodel.get_data(self.atom_het_datafields[3], shot_num)
 
-                ax_A_het = fig.add_subplot(2, 2, 1)
-                atom_A_het = (atom_file['A_het'][mask])
-                ref_A_het = (ref_file['A_het'][mask])
-                ax_A_het.plot(t, atom_A_het)
-                ax_A_het.plot(t, ref_A_het)
-                ax_A_het.set_title('Amplitude')
+        ref_A_het = datamodel.get_data(self.ref_het_datafields[0], shot_num)
+        ref_phi_het = datamodel.get_data(self.ref_het_datafields[1], shot_num)
+        ref_I_het = datamodel.get_data(self.ref_het_datafields[2], shot_num)
+        ref_Q_het = datamodel.get_data(self.ref_het_datafields[3], shot_num)
 
-                ax_phi_het = fig.add_subplot(2, 2, 3)
-                atom_phi_het = (atom_file['phi_het'][mask])
-                ref_phi_het = (ref_file['phi_het'][mask])
-                # Center central data point of phi_het between 0 and 2 * np.pi
-                atom_phi_het = np.unwrap(atom_phi_het)
-                ref_phi_het = np.unwrap(ref_phi_het)
-                num_samples = len(atom_phi_het)
-                atom_phi_het = atom_phi_het - ((atom_phi_het[int(num_samples / 2)] // (2 * np.pi)) * 2 * np.pi)
-                ref_phi_het = ref_phi_het - ((ref_phi_het[int(num_samples / 2)] // (2 * np.pi)) * 2 * np.pi)
+        dt = atom_A_het.attrs['dx']
+        t = np.arange(0, len(atom_A_het) * dt, dt)
+        if self.t_start is None:
+            self.t_start = t[0]
+        if self.t_stop is None:
+            self.t_stop = t[-1]
+        mask = np.logical_and(self.t_start < t, t < self.t_stop)
+        t = t[mask] * 1e3
 
-                ax_phi_het.plot(t, np.unwrap(atom_phi_het) / np.pi)
-                ax_phi_het.plot(t, np.unwrap(ref_phi_het) / np.pi)
-                ax_phi_het.set_title(r'Phase ($\pi$)')
-                ax_phi_het.set_xlabel('Time (ms)')
+        fig = plt.figure(figsize=(12, 12))
 
-                ax_Q_het = fig.add_subplot(2, 2, 2)
-                atom_Q_het = (atom_file['Q_het'][mask])
-                ref_Q_het = (ref_file['Q_het'][mask])
-                ax_Q_het.plot(t, atom_Q_het)
-                ax_Q_het.plot(t, ref_Q_het)
-                ax_Q_het.set_title('Q-Quadrature')
+        ax_A_het = fig.add_subplot(2, 2, 1)
+        atom_A_het = atom_A_het[mask]
+        ref_A_het = ref_A_het[mask]
+        ax_A_het.plot(t, atom_A_het)
+        ax_A_het.plot(t, ref_A_het)
+        ax_A_het.set_title('Amplitude')
 
-                ax_I_het = fig.add_subplot(2, 2, 4)
-                atom_I_het = (atom_file['I_het'][mask])
-                ref_I_het = (ref_file['I_het'][mask])
-                ax_I_het.plot(t, atom_I_het)
-                ax_I_het.plot(t, ref_I_het)
-                ax_I_het.legend(['With Atoms', 'No Atoms'])
-                ax_I_het.set_title('I-Quadrature')
-                ax_I_het.set_xlabel('Time (ms)')
+        ax_phi_het = fig.add_subplot(2, 2, 3)
+        atom_phi_het = atom_phi_het[mask]
+        ref_phi_het = ref_phi_het[mask]
+        # Center central data point of phi_het between 0 and 2 * np.pi
+        atom_phi_het = np.unwrap(atom_phi_het)
+        ref_phi_het = np.unwrap(ref_phi_het)
+        num_samples = len(atom_phi_het)
+        atom_phi_het = atom_phi_het - ((atom_phi_het[int(num_samples / 2)] // (2 * np.pi)) * 2 * np.pi)
+        ref_phi_het = ref_phi_het - ((ref_phi_het[int(num_samples / 2)] // (2 * np.pi)) * 2 * np.pi)
+
+        ax_phi_het.plot(t, np.unwrap(atom_phi_het) / np.pi)
+        ax_phi_het.plot(t, np.unwrap(ref_phi_het) / np.pi)
+        ax_phi_het.set_title(r'Phase ($\pi$)')
+        ax_phi_het.set_xlabel('Time (ms)')
+
+        ax_I_het = fig.add_subplot(2, 2, 4)
+        atom_I_het = atom_I_het[mask]
+        ref_I_het = ref_I_het[mask]
+        ax_I_het.plot(t, atom_I_het)
+        ax_I_het.plot(t, ref_I_het)
+        ax_I_het.legend(['With Atoms', 'No Atoms'])
+        ax_I_het.set_title('I-Quadrature')
+        ax_I_het.set_xlabel('Time (ms)')
+
+        ax_Q_het = fig.add_subplot(2, 2, 2)
+        atom_Q_het = atom_Q_het[mask]
+        ref_Q_het = ref_Q_het[mask]
+        ax_Q_het.plot(t, atom_Q_het)
+        ax_Q_het.plot(t, ref_Q_het)
+        ax_Q_het.set_title('Q-Quadrature')
 
         return fig
 

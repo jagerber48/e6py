@@ -27,6 +27,7 @@ class ShotProcessor(Processor):
         data_dict = datamodel.data_dict
 
         num_shots = data_dict['num_shots']
+        num_shots = 5
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
             if shot_key not in processor_dict['results'] or self.reset:
@@ -294,14 +295,15 @@ class CavSweepFitShotProcessor(ShotProcessor):
 
     def process_shot(self, shot_num, datamodel):
         A_het = datamodel.get_data(self.A_het_data_field, shot_num)
-        het_time_trace = datamodel.get_data(self.het_time_data_field, shot_num)
+        A_het_dt = A_het.attrs['dx']
+        A_het_time = np.arange(0, len(A_het) * A_het_dt, A_het_dt)
+
         vco_trace = datamodel.get_data(self.vco_data_field, shot_num)
+        vco_dt = vco_trace.attrs['dx']
+        vco_time = np.arange(0, len(vco_trace) * vco_dt, vco_dt)
 
-        A_het, het_time_trace = self.get_A_het_trace(het_demod_processor_dict, shot_key)
-        vco_trace, vco_time_trace = self.get_vco_trace(datamodel, het_demod_processor_dict, shot_num)
-
-        interp_func = interp1d(vco_time_trace, vco_trace)
-        vco_trace_interp = interp_func(het_time_trace)
+        vco_interp_func = interp1d(vco_time, vco_trace)
+        vco_trace_interp = vco_interp_func(A_het_time)
 
         fit_struct = lor_fit(vco_trace_interp, A_het, quiet=True)
         results_dict = {self.ResultKey.LOR_FIT_STRUCT.value: fit_struct}
