@@ -112,10 +112,10 @@ class DataModel:
                 h5_subpath = datastream.data_field_dict[field_name]
                 new_datafield = H5DataField(datamodel=self, data_source_name=datastream.datastream_name,
                                             field_name=field_name, file_prefix=datastream.file_prefix,
-                                            h5_subpath=h5_subpath)
+                                            h5_subpath=h5_subpath, mode='raw')
                 self.add_data_field(new_datafield)
-                
-        self.num_shots = self.datastream_list[0].num_shots()
+
+        self.num_shots = self.datastream_list[0].num_shots
         if not all([datastream.num_shots == self.num_shots for datastream in self.datastream_list]):
             print('Warning, data streams' +
                   ', '.join([datastream.datastream_name for datastream in self.datastream_list]) +
