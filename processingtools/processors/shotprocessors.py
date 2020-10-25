@@ -210,28 +210,33 @@ class HetDemodulationShotProcessor(ShotProcessor):
         self.carrier_frequency = carrier_frequency
         self.bandwidth = bandwidth
         self.downsample_rate = downsample_rate
-        self.input_data_field = raw_het_data_field
+        self.raw_het_data_field = raw_het_data_field
         self.output_data_fields = output_data_fields
 
     def process_shot(self, shot_num, datamodel):
         # raw_het, dt = get_gagescope_trace(file_path, self.channel_name, self.segment_name)
-        raw_het = datamodel.get_data(self.input_data_field, shot_num)
-        dt = 5e-9
+        raw_het = datamodel.get_data(self.raw_het_data_field, shot_num)
+        dt = raw_het.attrs['dx']
+        # dt = 5e-9
 
         num_samples = len(raw_het)
         t_coord = np.arange(0, num_samples) * dt
 
         raw_het_xr = xr.DataArray(raw_het, coords={'time': t_coord}, dims=['time'])
+
         I_het, Q_het, A_het, phi_het, time_series = self.demodulate(raw_het_xr, self.downsample_rate, dt)
-        results_dict = {'A_het': A_het, 'phi_het': phi_het, 'I_het': I_het, 'Q_het': Q_het, 'time_het': time_series}
-        for key in results_dict:
+        results_dict = {'A_het': A_het, 'phi_het': phi_het, 'I_het': I_het, 'Q_het': Q_het}
+        for idx, key in enumerate(results_dict):
             data = results_dict[key]
             new_data_field = H5DataField(datamodel=datamodel,
                                          data_source_name=self.processor_name,
-                                         field_name=self.output_data_fields[0],
+                                         field_name=self.output_data_fields[idx],
                                          file_prefix='iteration', h5_subpath=key, mode='processed')
             datamodel.add_data_field(new_data_field)
             new_data_field.set_data(shot_num, data)
+
+            dt = np.mean(np.diff(time_series))
+            new_data_field.set_attr(shot_num, 'dx', dt)
 
     def butter_lowpass_filter(self, data, order, dt):
         nyquist_freq = (1 / 2) * (1 / dt)
@@ -282,15 +287,15 @@ class CavSweepFitShotProcessor(ShotProcessor):
     class ResultKey(Enum):
         LOR_FIT_STRUCT = 'lor_fit_struct'
 
-    def __init__(self, *, het_demod_processor_name, vco_channel_name, processor_name, reset):
+    def __init__(self, *, processor_name, A_het_data_field, vco_data_field, reset):
         super(CavSweepFitShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
-        self.het_demod_processor_name = het_demod_processor_name
-        self.vco_channel_name = vco_channel_name
+        self.A_het_data_field = A_het_data_field
+        self.vco_data_field = vco_data_field
 
     def process_shot(self, shot_num, datamodel):
-        shot_key = f'shot-{shot_num:d}'
-        data_dict = datamodel.data_dict
-        het_demod_processor_dict = data_dict['shot_processors'][self.het_demod_processor_name]
+        A_het = datamodel.get_data(self.A_het_data_field, shot_num)
+        het_time_trace = datamodel.get_data(self.het_time_data_field, shot_num)
+        vco_trace = datamodel.get_data(self.vco_data_field, shot_num)
 
         A_het, het_time_trace = self.get_A_het_trace(het_demod_processor_dict, shot_key)
         vco_trace, vco_time_trace = self.get_vco_trace(datamodel, het_demod_processor_dict, shot_num)

@@ -71,7 +71,22 @@ class H5DataField(DataField):
             file_path.parent.mkdir(parents=True, exist_ok=True)
             data_file = h5py.File(file_path, 'a')
             containing_group = self.get_containing_group(data_file)
+            try:
+                del containing_group[self.dataset_name]
+            except OSError:
+                pass
             containing_group.create_dataset(self.dataset_name, data=data)
+
+    def set_attr(self, shot_num, attr_name, attr):
+        if self.mode == 'raw':
+            print('Cannot set data in RawH5DataField - this is raw data.')
+        elif self.mode == 'processed':
+            file_path = self.get_data_file_path(shot_num)
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            data_file = h5py.File(file_path, 'a')
+            containing_group = self.get_containing_group(data_file)
+            dataset = containing_group[self.dataset_name]
+            dataset.attrs[attr_name] = attr
 
 
 class GageRawDataField(H5DataField):
