@@ -108,7 +108,9 @@ class DataModel:
         for datastream in self.datastream_list:
             datastream.set_run(self.daily_path, self.run_name)
             self.datastream_dict[datastream.datastream_name] = datastream
-            self.add_data_field(datastream.make_data_field(datamodel=self))
+            new_data_field_list = datastream.make_data_fields(datamodel=self)
+            for data_field in new_data_field_list:
+                self.add_data_field(data_field)
 
         self.num_shots = self.datastream_list[0].num_shots
         if not all([datastream.num_shots == self.num_shots for datastream in self.datastream_list]):
@@ -116,8 +118,8 @@ class DataModel:
                   ', '.join([datastream.datastream_name for datastream in self.datastream_list]) +
                   f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
 
-    def add_data_field(self, datafield):
-        self.datafield_dict[datafield.field_name] = datafield
+    def add_data_field(self, data_field):
+        self.datafield_dict[data_field.field_name] = data_field
 
     def get_data(self, datafield_name, shot_num):
         data = self.datafield_dict[datafield_name].get_data(shot_num)
