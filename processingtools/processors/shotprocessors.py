@@ -205,12 +205,8 @@ class HetDemodulationShotProcessor(ShotProcessor):
         RESULT_FILE_PATH = 'result_file_path'
 
     def __init__(self, *, processor_name, raw_het_data_field, output_data_fields,
-                 datastream_name, channel_name, segment_name,
                  carrier_frequency, bandwidth, downsample_rate, reset):
-        super(HetDemodulationShotProcessor, self).__init__(processor_name=processor_name, weight=ProcessorWeight.HEAVY, reset=reset)
-        self.datastream_name = datastream_name
-        self.channel_name = channel_name
-        self.segment_name = segment_name
+        super(HetDemodulationShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
         self.carrier_frequency = carrier_frequency
         self.bandwidth = bandwidth
         self.downsample_rate = downsample_rate
@@ -218,15 +214,7 @@ class HetDemodulationShotProcessor(ShotProcessor):
         self.output_data_fields = output_data_fields
 
     def process_shot(self, shot_num, datamodel):
-        # datastream = datamodel.datastream_dict[self.datastream_name]
-        # file_path = datastream.get_file_path(shot_num)
-        output_data_path = Path(datamodel.daily_path, 'analysis',
-                                datamodel.run_name, self.processor_name)
-        output_data_path.mkdir(parents=True, exist_ok=True)
-        output_file_path = Path(output_data_path, f'het_analysis_{shot_num:05d}.h5')
-
         # raw_het, dt = get_gagescope_trace(file_path, self.channel_name, self.segment_name)
-
         raw_het = datamodel.get_data(self.input_data_field, shot_num)
         dt = 5e-9
 
@@ -235,14 +223,6 @@ class HetDemodulationShotProcessor(ShotProcessor):
 
         raw_het_xr = xr.DataArray(raw_het, coords={'time': t_coord}, dims=['time'])
         I_het, Q_het, A_het, phi_het, time_series = self.demodulate(raw_het_xr, self.downsample_rate, dt)
-
-        with h5py.File(str(output_file_path), 'w') as hf:
-            hf.create_dataset('I_het', data=I_het.astype('float'))
-            hf.create_dataset('Q_het', data=Q_het.astype('float'))
-            hf.create_dataset('A_het', data=A_het.astype('float'))
-            hf.create_dataset('phi_het', data=phi_het.astype('float'))
-            hf.create_dataset('time_series', data=time_series.astype('float'))
-
         results_dict = {'A_het': A_het, 'phi_het': phi_het, 'I_het': I_het, 'Q_het': Q_het, 'time_het': time_series}
         for key in results_dict:
             data = results_dict[key]
@@ -253,9 +233,6 @@ class HetDemodulationShotProcessor(ShotProcessor):
             datamodel.add_data_field(new_data_field)
             new_data_field.set_data(shot_num, data)
 
-        results_dict = dict()
-        results_dict[self.ResultKey.RESULT_FILE_PATH.value] = output_file_path
-        return results_dict
 
     def butter_lowpass_filter(self, data, order, dt):
         nyquist_freq = (1 / 2) * (1 / dt)
