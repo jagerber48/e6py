@@ -74,6 +74,31 @@ class H5DataField(DataField):
             containing_group.create_dataset(self.dataset_name, data=data)
 
 
+class GageRawDataField(H5DataField):
+    def __init__(self, *, datamodel, data_source_name, field_name, file_prefix, h5_subpath):
+        super(GageRawDataField, self).__init__(datamodel=datamodel, data_source_name=data_source_name,
+                                               field_name=field_name, file_prefix=file_prefix, h5_subpath=h5_subpath,
+                                               mode='raw')
+        self.channel_name, self.segment_name = self.h5_subpath.split('/')
+
+    def get_data(self, shot_num):
+        data = super(GageRawDataField, self).get_data(shot_num)
+        file_path = self.get_data_file_path(shot_num)
+        data = self.scale_gagescope_data(data, file_path)
+        return data
+
+    def scale_gagescope_data(self, data, file_path):
+        h5 = h5py.File(file_path, 'r')
+        channel_data = h5[self.channel_name]
+        sample_offset = channel_data.attrs['sample_offset']
+        sample_res = channel_data.attrs['sample_res']
+        sample_range = channel_data.attrs['input_range']
+        offset_v = channel_data.attrs['dc_offset']
+        scaled_data = ((sample_offset - data) / sample_res) * (sample_range / 2000.0) + offset_v
+        dt = data.attrs['dx']
+        return scaled_data
+
+
 class DataDictField(DataField):
     """
     scale is either 'shot' or 'point'

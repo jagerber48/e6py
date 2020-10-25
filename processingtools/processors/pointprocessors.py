@@ -204,4 +204,3 @@ class CountsThresholdPointProcessor(PointProcessor):
         results_dict[self.ResultKey.NUM_BELOW.value] = num_below
         results_dict[self.ResultKey.FRAC_BELOW.value] = frac_below
         return results_dict
-
