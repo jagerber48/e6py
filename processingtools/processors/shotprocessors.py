@@ -27,7 +27,6 @@ class ShotProcessor(Processor):
         data_dict = datamodel.data_dict
 
         num_shots = data_dict['num_shots']
-        num_shots = 5
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
             if shot_key not in processor_dict['results'] or self.reset:

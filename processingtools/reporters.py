@@ -314,10 +314,6 @@ class HetDemodAllShotsReporter(AllShotsReporter):
 
     # noinspection PyPep8Naming
     def report_shot(self, shot_num, datamodel):
-        data_dict = datamodel.data_dict
-
-        shot_key = f'shot-{shot_num:d}'
-
         atom_A_het = datamodel.get_data(self.atom_het_datafields[0], shot_num)
         atom_phi_het = datamodel.get_data(self.atom_het_datafields[1], shot_num)
         atom_I_het = datamodel.get_data(self.atom_het_datafields[2], shot_num)
