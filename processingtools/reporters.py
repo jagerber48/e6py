@@ -267,9 +267,9 @@ class GaussianFitAllShotsReporter(AllShotsReporter):
 
 
 class LorFitAllShotsReporter(AllShotsReporter):
-    def __init__(self, *, reporter_name, lor_fit_processor, x_label, x_units, y_label, y_units, reset):
+    def __init__(self, *, reporter_name, lor_fit_data_field, x_label, x_units, y_label, y_units, reset):
         super(LorFitAllShotsReporter, self).__init__(reporter_name=reporter_name, reset=reset)
-        self.lor_fit_processor = lor_fit_processor
+        self.lor_fit_data_field = lor_fit_data_field
         self.x_label = x_label
         self.x_units = x_units
         self.y_label = y_label
@@ -279,8 +279,7 @@ class LorFitAllShotsReporter(AllShotsReporter):
     def report_shot(self, shot_num, datamodel):
         data_dict = datamodel.data_dict
         shot_key = f'shot-{shot_num:d}'
-        fit_struct = (data_dict['shot_processors'][self.lor_fit_processor]
-                      ['results'][shot_key]['lor_fit_struct'])
+        fit_struct = datamodel.get_data(self.lor_fit_data_field, shot_num)
 
         x_data = fit_struct['input_data']
         y_data = fit_struct['output_data']

@@ -9,7 +9,7 @@ import xarray as xr
 from ..imagetools import get_image
 from ..datamodel import qprint
 from ..datastreamtools import get_gagescope_trace
-from ..datafield import H5DataField
+from ..datafield import H5DataField, DataDictField
 from .processor import Processor, ProcessorScale
 from ...smart_gaussian2d_fit import fit_gaussian2d
 from ..fittools import lor_fit
@@ -287,8 +287,9 @@ class CavSweepFitShotProcessor(ShotProcessor):
     class ResultKey(Enum):
         LOR_FIT_STRUCT = 'lor_fit_struct'
 
-    def __init__(self, *, processor_name, A_het_data_field, vco_data_field, reset):
+    def __init__(self, *, processor_name, output_field_name, A_het_data_field, vco_data_field, reset):
         super(CavSweepFitShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
+        self.output_field_name = output_field_name
         self.A_het_data_field = A_het_data_field
         self.vco_data_field = vco_data_field
 
@@ -305,8 +306,10 @@ class CavSweepFitShotProcessor(ShotProcessor):
         vco_trace_interp = vco_interp_func(A_het_time)
 
         fit_struct = lor_fit(vco_trace_interp, A_het, quiet=True)
-        results_dict = {self.ResultKey.LOR_FIT_STRUCT.value: fit_struct}
-        return results_dict
+
+        output_data_field = DataDictField(datamodel=datamodel, field_name=self.output_field_name,
+                                          data_source_name=self.processor_name, scale='shot')
+        output_data_field.set_data(shot_num, fit_struct)
 
     @staticmethod
     def get_A_het_trace(het_demod_processor_dict, shot_key):
