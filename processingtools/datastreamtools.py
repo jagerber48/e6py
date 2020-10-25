@@ -1,6 +1,7 @@
 from pathlib import Path
 import h5py
-from .datamodel import InputParamLogger, to_list
+from .datamodel import InputParamLogger
+from .datafield import H5DataField
 
 
 class RawDataStream(InputParamLogger):
@@ -10,6 +11,14 @@ class RawDataStream(InputParamLogger):
         self.data_field_dict = data_field_dict
         self.data_path = None
         self.num_shots = None
+
+    def make_data_field(self):
+        for field_name in self.data_field_dict:
+            h5_subpath = self.data_field_dict[field_name]
+            new_datafield = H5DataField(datamodel=self, data_source_name=self.datastream_name,
+                                        field_name=field_name, file_prefix=self.file_prefix,
+                                        h5_subpath=h5_subpath, mode='raw')
+            return new_datafield
 
     def set_run(self, daily_path, run_name):
         self.data_path = Path(daily_path, 'data', run_name, self.datastream_name)

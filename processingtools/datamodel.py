@@ -108,12 +108,7 @@ class DataModel:
         for datastream in self.datastream_list:
             datastream.set_run(self.daily_path, self.run_name)
             self.datastream_dict[datastream.datastream_name] = datastream
-            for field_name in datastream.data_field_dict:
-                h5_subpath = datastream.data_field_dict[field_name]
-                new_datafield = H5DataField(datamodel=self, data_source_name=datastream.datastream_name,
-                                            field_name=field_name, file_prefix=datastream.file_prefix,
-                                            h5_subpath=h5_subpath, mode='raw')
-                self.add_data_field(new_datafield)
+            self.add_data_field(datastream.make_data_field())
 
         self.num_shots = self.datastream_list[0].num_shots
         if not all([datastream.num_shots == self.num_shots for datastream in self.datastream_list]):

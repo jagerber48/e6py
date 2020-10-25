@@ -204,7 +204,7 @@ class HetDemodulationShotProcessor(ShotProcessor):
         RESULT_FILE_PATH = 'result_file_path'
 
     def __init__(self, *, datastream_name, channel_name, segment_name, carrier_frequency,
-                 bandwidth, downsample_rate, name, reset):
+                 bandwidth, downsample_rate, name, reset, input_data_field):
         super(HetDemodulationShotProcessor, self).__init__(name=name, weight=ProcessorWeight.HEAVY, reset=reset)
         self.datastream_name = datastream_name
         self.channel_name = channel_name
@@ -212,16 +212,21 @@ class HetDemodulationShotProcessor(ShotProcessor):
         self.carrier_frequency = carrier_frequency
         self.bandwidth = bandwidth
         self.downsample_rate = downsample_rate
+        self.input_data_field = input_data_field
 
     def process_shot(self, shot_num, datamodel):
-        datastream = datamodel.datastream_dict[self.datastream_name]
-        file_path = datastream.get_file_path(shot_num)
+        # datastream = datamodel.datastream_dict[self.datastream_name]
+        # file_path = datastream.get_file_path(shot_num)
         output_data_path = Path(datamodel.daily_path, 'analysis',
                                 datamodel.run_name, self.name)
         output_data_path.mkdir(parents=True, exist_ok=True)
         output_file_path = Path(output_data_path, f'het_analysis_{shot_num:05d}.h5')
 
-        raw_het, dt = get_gagescope_trace(file_path, self.channel_name, self.segment_name)
+        # raw_het, dt = get_gagescope_trace(file_path, self.channel_name, self.segment_name)
+
+        raw_het = datamodel.get_data(self.input_data_field, shot_num)
+        dt = 5e-9
+
         num_samples = len(raw_het)
         t_coord = np.arange(0, num_samples) * dt
 

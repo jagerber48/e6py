@@ -28,7 +28,7 @@ class H5DataField(DataField):
     """
     def __init__(self, *, datamodel, data_source_name, field_name, file_prefix, h5_subpath, mode):
         super(H5DataField, self).__init__(datamodel=datamodel, data_source_name=data_source_name,
-                                           field_name=field_name)
+                                          field_name=field_name)
         self.file_prefix = file_prefix
         self.h5_subpath = h5_subpath
         self.mode = mode
@@ -44,15 +44,16 @@ class H5DataField(DataField):
         self.dataset_name = subpath_list[-1]
 
     def get_containing_group(self, h5_file):
-        if len(self.subgroup_list) > 1:
+        print(self.subgroup_list)
+        if len(self.subgroup_list) > 0:
             group_chain = '/'.join(self.subgroup_list)
             h5_file.require_group(group_chain)
-            return h5_file(group_chain)
+            return h5_file[group_chain]
         else:
             return h5_file
 
     def get_data_file_path(self, shot_num):
-        file_name = f'{self.file_prefix}_{shot_num:05d}'
+        file_name = f'{self.file_prefix}_{shot_num:05d}.h5'
         file_path = Path(self.data_source_path, file_name)
         return file_path
 
@@ -60,6 +61,7 @@ class H5DataField(DataField):
         file_path = self.get_data_file_path(shot_num)
         data_file = h5py.File(file_path, 'r')
         containing_group = self.get_containing_group(data_file)
+        print(containing_group)
         data = containing_group[self.dataset_name]
         return data
 
