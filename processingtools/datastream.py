@@ -18,7 +18,7 @@ class RawDataStream(InputParamLogger):
             new_datafield = H5DataField(datamodel=datamodel, data_source_name=self.datastream_name,
                                         field_name=field_name, file_prefix=self.file_prefix,
                                         h5_subpath=h5_subpath, mode='raw')
-            datamodel.add_datafield(new_datafield)
+            # datamodel.add_datafield(new_datafield)
 
     def set_run(self, daily_path, run_name):
         self.data_path = Path(daily_path, 'data', run_name, self.datastream_name)

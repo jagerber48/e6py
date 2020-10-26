@@ -9,6 +9,7 @@ class DataField(InputParamLogger):
         self.field_name = field_name
         self.data_source_name = data_source_name
         self.datamodel = datamodel
+        self.datamodel.add_datafield(self)
 
     @staticmethod
     def reduce_by_keychain(data_source, keychain):
@@ -137,13 +138,13 @@ class DataDictField(DataField):
 
     def make_data_dict_pathchain(self, shot_num):
         shot_key = f'shot-{shot_num:d}'
-        make_data_dict_pathchain = f'processed_{self.scale}_data/{self.data_source_name}/results/{shot_key}/'
+        make_data_dict_pathchain = f'{self.scale}_data/{self.data_source_name}{shot_key}/'
         return make_data_dict_pathchain
 
     def get_data(self, shot_num):
         data_dict_pathchain = self.make_data_dict_pathchain(shot_num)
         shot_dict = self.reduce_by_keychain(data_source=self.data_dict, keychain=data_dict_pathchain)
-        data = shot_dict['field_name']
+        data = shot_dict[self.field_name]
         return data
 
     def set_data(self, shot_num, data):

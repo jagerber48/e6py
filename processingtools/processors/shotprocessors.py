@@ -90,20 +90,27 @@ class AbsorptionShotProcessor(ShotProcessor):
         ABSORPTION_IMAGE = 'absorption_image'
         OD_IMAGE = 'od_image'
 
-    def __init__(self, *, datastream_name, atom_frame_name, bright_frame_name, dark_frame_name,
-                 atom_dict, imaging_system_dict, roi_slice, calc_high_sat, processor_name, reset):
+    def __init__(self, *, processor_name,
+                 atom_frame_field_name, bright_frame_field_name, dark_frame_field_name,
+                 output_number_field_name, output_od_field_name,
+                 atom_dict, imaging_system_dict, roi_slice, calc_high_sat, reset):
         super(AbsorptionShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
         if imaging_system_dict is None:
             imaging_system_dict = side_imaging_dict
         if atom_dict is None:
             atom_dict = rb_atom_dict
-        self.datastream_name = datastream_name
-        self.atom_frame_name = atom_frame_name
-        self.bright_frame_name = bright_frame_name
-        self.dark_frame_name = dark_frame_name
+        self.atom_frame_field_name = atom_frame_field_name
+        self.bright_frame_field_name = bright_frame_field_name
+        self.dark_frame_field_name = dark_frame_field_name
+
+        self.output_number_field_name = output_number_field_name
+        self.output_od_field_name = output_od_field_name
+
         self.atom_dict = atom_dict
         self.imaging_system_dict = imaging_system_dict
         self.roi_slice = roi_slice
+        if self.roi_slice is None:
+            self.roi_slice = slice(None, None, None)
         self.calc_high_sat = calc_high_sat
 
         self.linewidth = self.atom_dict['linewidth']
@@ -116,16 +123,21 @@ class AbsorptionShotProcessor(ShotProcessor):
         self.count_conversion = self.imaging_system_dict['count_conversion']
 
     def process_shot(self, shot_num, datamodel):
-        datastream = datamodel.datastream_dict[self.datastream_name]
-        file_path = datastream.get_file_path(shot_num)
-        atom_frame = get_image(file_path, self.atom_frame_name, roi_slice=self.roi_slice)
-        bright_frame = get_image(file_path, self.bright_frame_name, roi_slice=self.roi_slice)
-        dark_frame = get_image(file_path, self.dark_frame_name, roi_slice=self.roi_slice)
+        atom_frame = datamodel.get_data(self.atom_frame_field_name, shot_num)[self.roi_slice]
+        bright_frame = datamodel.get_data(self.atom_frame_field_name, shot_num)[self.roi_slice]
+        dark_frame = datamodel.get_data(self.atom_frame_field_name, shot_num)[self.roi_slice]
         od_frame, atom_frame = self.absorption_od_and_number(atom_frame, bright_frame, dark_frame)
-        results_dict = dict()
-        results_dict[self.ResultKey.ABSORPTION_IMAGE.value] = atom_frame
-        results_dict[self.ResultKey.OD_IMAGE.value] = od_frame
-        return results_dict
+
+        atom_frame_field = DataDictField(datamodel=datamodel,
+                                         field_name=self.output_number_field_name,
+                                         data_source_name=self.processor_name,
+                                         scale='shot')
+        od_frame_field = DataDictField(datamodel=datamodel,
+                                       field_name=self.output_od_field_name,
+                                       data_source_name=self.processor_name,
+                                       scale='shot')
+        atom_frame_field.set_data(shot_num, atom_frame)
+        od_frame_field.set_data(shot_num, od_frame)
 
     def absorption_od_and_number(self, atom_frame, bright_frame, dark_frame):
         atom_counts, bright_counts = self.absorption_bg_subtract(atom_frame, bright_frame, dark_frame)
@@ -279,7 +291,7 @@ class AbsorptionGaussianFitShotProcessor(ShotProcessor):
     def process_shot(self, shot_num, datamodel):
         data_dict = datamodel.data_dict
         shot_key = f'shot-{shot_num:d}'
-        frame = data_dict['shot_processors'][self.source_processor_name]['results'][shot_key]['absorption_image']
+        frame = data_dict['shot_data'][self.source_processor_name][shot_key]['absorption_image']
         fit_struct = fit_gaussian2d(frame, show_plot=False, save_name=None, quiet=True)
         results_dict = {self.ResultKey.GAUSSIAN_FIT_STRUCT.value: fit_struct}
         return results_dict
