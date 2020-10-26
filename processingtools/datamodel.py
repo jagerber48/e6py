@@ -35,6 +35,7 @@ class DataModel(InputParamLogger):
         self.load_datamodel(reset_hard=reset_hard)
         self.add_from_input_params(datastream_list, shot_processor_list, point_processor_list, reporter_list)
         self.set_shot_lists()
+        self.data_dict.save_dict()
 
     @staticmethod
     def add_subdict(parent_dict, child_dict_name, overwrite=False):
@@ -135,20 +136,16 @@ class DataModel(InputParamLogger):
 
     def process(self):
         qprint(f'***Processing run: {self.run_name}***', quiet=self.quiet)
-        if 'shot_processors' not in self.data_dict:
-            self.data_dict['shot_processors'] = dict()
-        for shot_processor in self.shot_processor_list:
+        for shot_processor in self.shot_processor_dict.values():
             shot_processor.process(self, quiet=self.quiet)
 
-        if 'point_processors' not in self.data_dict:
-            self.data_dict['point_processors'] = dict()
-        for point_processor in self.point_processor_list:
+        for point_processor in self.point_processor_dict.values():
             point_processor.process(self, quiet=self.quiet)
 
         self.data_dict.save_dict()
 
     def run_reporters(self):
-        for reporter in self.reporter_list:
+        for reporter in self.reporter_dict.values():
             reporter.report(self)
 
     def print_dict_tree(self):
@@ -167,7 +164,6 @@ class DataModel(InputParamLogger):
             point_shots, point_loops = get_shot_list_from_point(point, self.num_points, self.num_shots)
             self.data_dict['shot_list'][key] = point_shots
             self.data_dict['loop_nums'][key] = point_loops
-        self.data_dict.save_dict()
 
 
 class DataModelDict:
