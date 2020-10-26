@@ -16,27 +16,24 @@ class DataModel(InputParamLogger):
         self.daily_path = daily_path
         self.run_name = run_name
         self.num_points = num_points
-        self.datastream_list = to_list(datastream_list)
-        self.shot_processor_list = to_list(shot_processor_list)
-        self.point_processor_list = to_list(point_processor_list)
-        self.reporter_list = to_list(reporter_list)
         self.quiet = quiet
 
-        self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
-        self.initialize_data_dict()
+        datastream_list = to_list(datastream_list)
+        shot_processor_list = to_list(shot_processor_list)
+        point_processor_list = to_list(point_processor_list)
+        reporter_list = to_list(reporter_list)
 
         self.datastream_dict = dict()
         self.shot_processor_dict = dict()
         self.point_processor_dict = dict()
         self.reporter_dict = dict()
         self.datafield_dict = dict()
-
-        self.load_datamodel(reset_hard)
-
         self.num_shots = None
-        self.datastream_dict = dict()
-        self.initialize_datastreams()
 
+        self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
+        self.initialize_data_dict()
+        self.load_datamodel(reset_hard=reset_hard)
+        self.add_from_input_params(datastream_list, shot_processor_list, point_processor_list, reporter_list)
         self.set_shot_lists()
 
     @staticmethod
