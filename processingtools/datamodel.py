@@ -105,8 +105,6 @@ class DataModel:
         self.load_datamodel(reset_hard)
 
 
-        self.datafield_dict = dict()
-
         self.num_shots = 0
         self.datastream_dict = dict()
         self.initialize_datastreams()
@@ -129,6 +127,8 @@ class DataModel:
                 new_datastream.set_run(self.daily_path, self.run_name)
                 self.datastream_dict[new_datastream.datastream_name] = new_datastream
                 new_datastream.make_data_fields(datamodel=self)
+        else:
+            self.data_dict['datastreams'] = dict()
 
     def load_shot_processors(self):
         if 'shot_processors' in self.data_dict:
@@ -140,6 +140,8 @@ class DataModel:
                 kwargs = processor_input_params['kwargs']
                 new_shot_processor = processor_class(*args, **kwargs)
                 self.shot_processor_dict[new_shot_processor.processor_name] = new_shot_processor
+        else:
+            self.data_dict['shot_processors'] = dict()
 
     def load_point_processors(self):
         if 'point_processors' in self.data_dict:
@@ -151,6 +153,21 @@ class DataModel:
                 kwargs = processor_input_params['kwargs']
                 new_point_processor = processor_class(*args, **kwargs)
                 self.point_processor_dict[new_point_processor.processor_name] = new_point_processor
+        else:
+            self.data_dict['point_processors'] = dict()
+
+    def load_reporters(self):
+        if 'reporters' in self.data_dict:
+            reporter_dict = self.data_dict['reporters']
+            for reporter_input_params in reporter_dict:
+                reporter_class_name = reporter_input_params['class_name']
+                reporter_class = point_processor_class[reporter_class_name]
+                args = reporter_input_params['args']
+                kwargs = reporter_input_params['kwargs']
+                new_reporter = reporter_input_params(*args, **kwargs)
+                self.point_processor_dict[new_reporter.reporter_name] = new_reporter
+        else:
+            self.data_dict['reporters'] = dict()
 
     def initialize_datastreams(self):
         for datastream in self.datastream_list:
