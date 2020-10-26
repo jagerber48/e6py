@@ -23,6 +23,7 @@ class DataModel(InputParamLogger):
         self.quiet = quiet
 
         self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
+        self.initialize_data_dict()
 
         self.datastream_dict = dict()
         self.shot_processor_dict = dict()
@@ -32,7 +33,7 @@ class DataModel(InputParamLogger):
 
         self.load_datamodel(reset_hard)
 
-        self.num_shots = 0
+        self.num_shots = None
         self.datastream_dict = dict()
         self.initialize_datastreams()
 
@@ -48,66 +49,85 @@ class DataModel(InputParamLogger):
         for dict_name in sub_dict_list:
             self.add_subdict(self.data_dict, dict_name, overwrite=False)
 
-
     def add_from_input_params(self, datastream_list, shot_processor_list, point_processor_list, reporter_list):
         for datastream in datastream_list:
+            self.data_dict['datastreams'][datastream.datastream_name] = datastream.input_param_dict
+        for shot_processor in shot_processor_list:
+            self.data_dict['shot_processors'][shot_processor.processor_name] = shot_processor.input_param_dict
+        for point_processor in point_processor_list:
+            self.data_dict['point_processors'][point_processor.processor_name] = point_processor.input_param_dict
+        for reporter in reporter_list:
+            self.data_dict['reporters'][reporter.reporter_name] = reporter.input_param_dict
+
+    def add_datastream(self, datastream):
+        name = datastream.datastream_name
+        self.datastream_dict[name] = datastream
+        self.data_dict['datastreams'][name] = datastream.input_param_dict
+
+        datastream.set_run(self.daily_path, self.run_name)
+        if self.num_shots is None:
+            self.num_shots = datastream.num_shots
+        elif datastream.num_shots != self.num_shots:
+            print(f'Warning, num_shots for datastream: "{name}" incommensurate with datamodel num_shots!')
+
+    def add_shot_processor(self, shot_processor):
+        name = shot_processor.processor_name
+        self.shot_processor_dict[name] = shot_processor
+        self.data_dict['shot_processors'][name] = shot_processor.input_param_dict
+
+    def add_point_processor(self, point_processor):
+        name = point_processor.processor_name
+        self.point_processor_dict[name] = point_processor
+        self.data_dict['point_processors'][name] = point_processor.input_param_dict
+
+    def add_reporter(self, reporter):
+        name = reporter.reporter_name
+        self.reporter_dict[name] = reporter
+        self.data_dict['reporters'][name] = reporter.input_param_dict
+
+    def add_datafield(self, datafield):
+        name = datafield.field_name
+        self.datafield_dict[name] = datafield
+        self.data_dict['datafields'][name] = datafield.input_param_dict
 
     def load_datamodel(self, reset_hard):
         self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
-        self.load_datastream()
+        self.load_datastreams()
         self.load_shot_processors()
         self.load_point_processors()
         self.load_reporters()
         self.load_datafields()
 
-    def load_datastream(self):
+    def load_datastreams(self):
         datastream_dict = self.data_dict['datastreams']
-        for input_param_dict in datastream_dict:
+        for input_param_dict in datastream_dict.values():
             datastream = InputParamLogger.rebuild(input_param_dict)
-            datastream.set_run(self.daily_path, self.run_name)
-            self.datastream_dict[datastream.datastream_name] = datastream
-            datastream.make_data_fields(datamodel=self)
+            self.add_datastream(datastream)
 
     def load_shot_processors(self):
         shot_processor_dict = self.data_dict['shot_processors']
-        for input_param_dict in shot_processor_dict:
+        for input_param_dict in shot_processor_dict.values():
             shot_processor = InputParamLogger.rebuild(input_param_dict)
-            self.shot_processor_dict[shot_processor.processor_name] = shot_processor
+            self.add_shot_processor(shot_processor)
 
     def load_point_processors(self):
         point_processor_dict = self.data_dict['point_processors']
-        for input_param_dict in point_processor_dict:
+        for input_param_dict in point_processor_dict.values():
             point_processor = InputParamLogger.rebuild(input_param_dict)
-            self.point_processor_dict[point_processor.processor_name] = point_processor
+            self.add_point_processor(point_processor)
 
     def load_reporters(self):
         reporter_dict = self.data_dict['reporters']
-        for input_param_dict in reporter_dict:
+        for input_param_dict in reporter_dict.values():
             reporter = InputParamLogger.rebuild(input_param_dict)
-            self.reporter_dict[reporter.reporter_name] = reporter
+            self.add_reporter(reporter)
 
     def load_datafields(self):
         datafield_dict = self.data_dict['datafields']
-        for input_param_dict in datafield_dict:
+        for input_param_dict in datafield_dict.values():
             datafield = InputParamLogger.rebuild(input_param_dict)
+            self.add_datafield(datafield)
             self.datafield_dict[datafield.field_name] = datafield
-
-    def initialize_datastreams(self):
-        for datastream in self.datastream_list:
-            datastream.set_run(self.daily_path, self.run_name)
-            self.datastream_dict[datastream.datastream_name] = datastream
-            new_data_field_list = datastream.make_data_fields(datamodel=self)
-            for data_field in new_data_field_list:
-                self.add_data_field(data_field)
-
-        self.num_shots = self.datastream_list[0].num_shots
-        if not all([datastream.num_shots == self.num_shots for datastream in self.datastream_list]):
-            print('Warning, data streams' +
-                  ', '.join([datastream.datastream_name for datastream in self.datastream_list]) +
-                  f' have incommensurate numbers of files. num_shots set to: {self.num_shots}')
-
-    def add_data_field(self, data_field):
-        self.datafield_dict[data_field.field_name] = data_field
 
     def get_data(self, datafield_name, shot_num):
         data = self.datafield_dict[datafield_name].get_data(shot_num)
