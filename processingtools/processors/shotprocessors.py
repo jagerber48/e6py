@@ -8,7 +8,7 @@ import h5py
 import xarray as xr
 from ..imagetools import get_image
 from ..datamodel import qprint
-from ..datastreamtools import get_gagescope_trace
+from ..datastream import get_gagescope_trace
 from ..datafield import H5DataField, DataDictField
 from .processor import Processor, ProcessorScale
 from ...smart_gaussian2d_fit import fit_gaussian2d
@@ -24,15 +24,19 @@ class ShotProcessor(Processor):
         self.reset = reset
 
     def scaled_process(self, datamodel, processor_dict, quiet=False):
+        if 'processed_shots' not in processor_dict:
+            processor_dict['processed_shots'] = []
+
         data_dict = datamodel.data_dict
 
         num_shots = data_dict['num_shots']
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
-            if shot_key not in processor_dict['results'] or self.reset:
+            print(processor_dict['processed_shots'])
+            if shot_num not in processor_dict['processed_shots'] or self.reset:
                 qprint(f'processing {shot_key}', quiet=quiet)
-                results_dict = self.process_shot(shot_num, datamodel)
-                processor_dict['results'][shot_key] = results_dict
+                self.process_shot(shot_num, datamodel)
+                processor_dict['processed_shots'].append(shot_num)
                 data_dict.save_dict(quiet=True)
             else:
                 qprint(f'skipping processing {shot_key}', quiet=quiet)
@@ -336,3 +340,11 @@ class CavSweepFitShotProcessor(ShotProcessor):
         # Calibration taken from
         freq = 2 * (62.970 * volt + 42.014)
         return freq
+
+
+shot_processor_class = {'ShotProcessor': ShotProcessor,
+                        'CountsShotProcessor': CountsShotProcessor,
+                        'AbsorptionShotProcessor': AbsorptionShotProcessor,
+                        'HetDemodulationShotProcessor': HetDemodulationShotProcessor,
+                        'AbsorptionGaussianFitShotProcessor': AbsorptionGaussianFitShotProcessor,
+                        'CavSweepFitShotProcessor': CavSweepFitShotProcessor}

@@ -2,10 +2,9 @@ from functools import reduce
 import numpy as np
 from pathlib import Path
 import pickle
-
-from future.types import newint
-
-from .datafield import H5DataField
+from .datastream import datastream_class_dict
+from .processors.shotprocessors import shot_processor_class
+from .processors.pointprocessors import point_processor_class
 
 
 def qprint(text, quiet=False):
@@ -77,7 +76,7 @@ def to_list(var):
 
 class InputParamLogger:
     def __new__(cls, *args, **kwargs):
-        input_param_dict = {'args': args, 'kwargs': kwargs}
+        input_param_dict = {'args': args, 'kwargs': kwargs, 'class_name': cls.__name__}
         obj = super(InputParamLogger, cls).__new__(cls)
         obj.input_param_dict = input_param_dict
         return obj
@@ -95,14 +94,63 @@ class DataModel:
         self.reporter_list = to_list(reporter_list)
         self.quiet = quiet
 
+        self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
+
+        self.datastream_dict = dict()
+        self.shot_processor_dict = dict()
+        self.point_processor_dict = dict()
+        self.reporter_dict = dict()
+        self.datafield_dict = dict()
+
+        self.load_datamodel(reset_hard)
+
+
         self.datafield_dict = dict()
 
         self.num_shots = 0
         self.datastream_dict = dict()
         self.initialize_datastreams()
 
-        self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
         self.set_shot_lists()
+
+    def load_datamodel(self, reset_hard):
+        self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
+        self.load_datastream()
+
+    def load_datastream(self):
+        if 'datastreams' in self.data_dict:
+            datastream_dict = self.data_dict['datastreams']
+            for datastream_input_params in datastream_dict:
+                datastream_class_name = datastream_input_params['class_name']
+                datastream_class = datastream_class_dict[datastream_class_name]
+                args = datastream_input_params['args']
+                kwargs = datastream_input_params['kwargs']
+                new_datastream = datastream_class(*args, **kwargs)
+                new_datastream.set_run(self.daily_path, self.run_name)
+                self.datastream_dict[new_datastream.datastream_name] = new_datastream
+                new_datastream.make_data_fields(datamodel=self)
+
+    def load_shot_processors(self):
+        if 'shot_processors' in self.data_dict:
+            shot_processor_dict = self.data_dict['shot_processors']
+            for processor_input_params in shot_processor_dict:
+                processor_class_name = processor_input_params['class_name']
+                processor_class = shot_processor_class[processor_class_name]
+                args = processor_input_params['args']
+                kwargs = processor_input_params['kwargs']
+                new_shot_processor = processor_class(*args, **kwargs)
+                self.shot_processor_dict[new_shot_processor.processor_name] = new_shot_processor
+
+    def load_point_processors(self):
+        if 'point_processors' in self.data_dict:
+            point_processor_dict = self.data_dict['point_processors']
+            for processor_input_params in point_processor_dict:
+                processor_class_name = processor_input_params['class_name']
+                processor_class = point_processor_class[processor_class_name]
+                args = processor_input_params['args']
+                kwargs = processor_input_params['kwargs']
+                new_point_processor = processor_class(*args, **kwargs)
+                self.point_processor_dict[new_point_processor.processor_name] = new_point_processor
 
     def initialize_datastreams(self):
         for datastream in self.datastream_list:

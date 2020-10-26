@@ -1,3 +1,4 @@
+from enum import Enum
 from pathlib import Path
 import h5py
 from .datamodel import InputParamLogger
@@ -13,14 +14,12 @@ class RawDataStream(InputParamLogger):
         self.num_shots = None
 
     def make_data_fields(self, datamodel):
-        new_data_field_list = []
         for field_name in self.data_field_dict:
             h5_subpath = self.data_field_dict[field_name]
             new_datafield = H5DataField(datamodel=datamodel, data_source_name=self.datastream_name,
                                         field_name=field_name, file_prefix=self.file_prefix,
                                         h5_subpath=h5_subpath, mode='raw')
-            new_data_field_list.append(new_datafield)
-        return new_data_field_list
+            datamodel.add_data_field(new_datafield)
 
     def set_run(self, daily_path, run_name):
         self.data_path = Path(daily_path, 'data', run_name, self.datastream_name)
@@ -63,3 +62,7 @@ def get_gagescope_trace(file_path, channel_name, segment_name):
     scaled_data = ((sample_offset - data) / sample_res) * (sample_range / 2000.0) + offset_v
     dt = data.attrs['dx']
     return scaled_data, dt
+
+
+datastream_class_dict = {'RawDataStream': RawDataStream,
+                         'GageRawDataStream': GageRawDataStream}

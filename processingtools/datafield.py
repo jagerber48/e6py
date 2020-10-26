@@ -1,9 +1,10 @@
 from functools import reduce
 from pathlib import Path
 import h5py
+from .datamodel import InputParamLogger
 
 
-class DataField:
+class DataField(InputParamLogger):
     def __init__(self, *, datamodel, data_source_name, field_name):
         self.field_name = field_name
         self.data_source_name = data_source_name
@@ -123,6 +124,8 @@ class DataDictField(DataField):
                                             field_name=field_name, )
         self.data_dict = self.datamodel.data_dict
         self.scale = scale
+
+
 
     @staticmethod
     def create_sub_dict(parent_dict, child_dict_keychain):
