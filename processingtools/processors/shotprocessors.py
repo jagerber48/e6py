@@ -281,20 +281,19 @@ class HetDemodulationShotProcessor(ShotProcessor):
 
 
 class AbsorptionGaussianFitShotProcessor(ShotProcessor):
-    class ResultKey(Enum):
-        GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
-
-    def __init__(self, *, source_processor_name, processor_name, reset):
+    def __init__(self, *, processor_name, number_frame_field_name, output_field_name, reset):
         super(AbsorptionGaussianFitShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
-        self.source_processor_name = source_processor_name
+        self.number_frame_field_name = number_frame_field_name
+        self.output_field_name = output_field_name
 
     def process_shot(self, shot_num, datamodel):
-        data_dict = datamodel.data_dict
-        shot_key = f'shot-{shot_num:d}'
-        frame = data_dict['shot_data'][self.source_processor_name][shot_key]['absorption_image']
+        frame = datamodel.get_data(self.number_frame_field_name, shot_num)
         fit_struct = fit_gaussian2d(frame, show_plot=False, save_name=None, quiet=True)
-        results_dict = {self.ResultKey.GAUSSIAN_FIT_STRUCT.value: fit_struct}
-        return results_dict
+        output_field = DataDictField(datamodel=datamodel,
+                                     field_name=self.output_field_name,
+                                     data_source_name=self.processor_name,
+                                     scale='shot')
+        output_field.set_data(shot_num, fit_struct)
 
 
 # noinspection PyPep8Naming
