@@ -1,4 +1,3 @@
-from enum import Enum
 from pathlib import Path
 import h5py
 from .datamodel import InputParamLogger
@@ -62,7 +61,3 @@ def get_gagescope_trace(file_path, channel_name, segment_name):
     scaled_data = ((sample_offset - data) / sample_res) * (sample_range / 2000.0) + offset_v
     dt = data.attrs['dx']
     return scaled_data, dt
-
-
-datastream_class_dict = {'RawDataStream': RawDataStream,
-                         'GageRawDataStream': GageRawDataStream}

@@ -1,7 +1,7 @@
 from functools import reduce
 from pathlib import Path
 import h5py
-from .datamodel import InputParamLogger
+from .datatools import InputParamLogger
 
 
 class DataField(InputParamLogger):

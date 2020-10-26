@@ -1,5 +1,5 @@
 from enum import Enum
-from ..datamodel import InputParamLogger, qprint
+from ..datatools import InputParamLogger, qprint
 
 
 class ProcessorScale(Enum):

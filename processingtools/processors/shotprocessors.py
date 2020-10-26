@@ -7,7 +7,7 @@ from scipy.interpolate import interp1d
 import h5py
 import xarray as xr
 from ..imagetools import get_image
-from ..datamodel import qprint
+from ..datatools import qprint
 from ..datastream import get_gagescope_trace
 from ..datafield import H5DataField, DataDictField
 from .processor import Processor, ProcessorScale
@@ -340,11 +340,3 @@ class CavSweepFitShotProcessor(ShotProcessor):
         # Calibration taken from
         freq = 2 * (62.970 * volt + 42.014)
         return freq
-
-
-shot_processor_class = {'ShotProcessor': ShotProcessor,
-                        'CountsShotProcessor': CountsShotProcessor,
-                        'AbsorptionShotProcessor': AbsorptionShotProcessor,
-                        'HetDemodulationShotProcessor': HetDemodulationShotProcessor,
-                        'AbsorptionGaussianFitShotProcessor': AbsorptionGaussianFitShotProcessor,
-                        'CavSweepFitShotProcessor': CavSweepFitShotProcessor}

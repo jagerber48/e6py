@@ -1,15 +1,6 @@
-from functools import reduce
-import numpy as np
 from pathlib import Path
 import pickle
-from .datastream import datastream_class_dict
-from .processors.shotprocessors import shot_processor_class
-from .processors.pointprocessors import point_processor_class
-
-
-def qprint(text, quiet=False):
-    if not quiet:
-        print(text)
+from .datatools import to_list, qprint, get_shot_list_from_point, InputParamLogger
 
 
 def print_dict_tree(dict_tree, level=0):
@@ -17,69 +8,6 @@ def print_dict_tree(dict_tree, level=0):
         print(f'{"  "*level}{level}-{key}')
         if isinstance(dict_tree[key], dict):
             print_dict_tree(dict_tree[key], level+1)
-
-
-def get_shot_list_from_point(point, num_points, num_shots, start_shot=0, stop_shot=None):
-    # TODO: Implement different conventions for shot and point start indices
-    shots = np.arange(point, num_shots, num_points)
-    start_mask = start_shot <= shots
-    shots = shots[start_mask]
-    if stop_shot is not None:
-        stop_mask = shots <= stop_shot
-        shots = shots[stop_mask]
-    num_loops = len(shots)
-    return shots, num_loops
-
-
-def shot_to_loop_and_point(shot, num_points=1, shot_index_convention=0,
-                           loop_index_convention=0, point_index_convention=0):
-    """
-    Convert shot number to loop and point using the number of points. Default assumption is indexing for
-    shot, loop, and point all starts from zero with options for other conventions.
-    """
-    shot_ind = shot - shot_index_convention
-    loop_ind = shot_ind // num_points
-    point_ind = shot_ind % num_points
-    loop = loop_ind + loop_index_convention
-    point = point_ind + point_index_convention
-    return loop, point
-
-
-def loop_and_point_to_shot(loop, point, num_points=1, shot_index_convention=0,
-                           loop_index_convention=0, point_index_convention=0):
-    """
-    Convert loop and point to shot number using the number of points. Default assumption is indexing for
-    shot, loop, and point all starts from zero with options for other conventions.
-    """
-    loop_ind = loop - loop_index_convention
-    point_ind = point - point_index_convention
-    shot_ind = loop_ind * num_points + point_ind
-    shot = shot_ind + shot_index_convention
-    return shot
-
-
-def dataset_from_keychain(datamodel, keychain):
-    data_dict = datamodel.data_dict
-    data = reduce(lambda x, y: x[y], keychain.split('/'), data_dict)
-    return data
-
-
-def to_list(var):
-    """
-    Helper function to convert singleton input parameters into list-expecting parameters into singleton lists.
-    """
-    if isinstance(var, (list, tuple)):
-        return var
-    else:
-        return [var]
-
-
-class InputParamLogger:
-    def __new__(cls, *args, **kwargs):
-        input_param_dict = {'args': args, 'kwargs': kwargs, 'class_name': cls.__name__}
-        obj = super(InputParamLogger, cls).__new__(cls)
-        obj.input_param_dict = input_param_dict
-        return obj
 
 
 class DataModel:
@@ -104,7 +32,6 @@ class DataModel:
 
         self.load_datamodel(reset_hard)
 
-
         self.num_shots = 0
         self.datastream_dict = dict()
         self.initialize_datastreams()
@@ -114,60 +41,57 @@ class DataModel:
     def load_datamodel(self, reset_hard):
         self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
         self.load_datastream()
+        self.load_shot_processors()
+        self.load_point_processors()
+        self.load_reporters()
+        self.load_datafields()
 
     def load_datastream(self):
         if 'datastreams' in self.data_dict:
             datastream_dict = self.data_dict['datastreams']
-            for datastream_input_params in datastream_dict:
-                datastream_class_name = datastream_input_params['class_name']
-                datastream_class = datastream_class_dict[datastream_class_name]
-                args = datastream_input_params['args']
-                kwargs = datastream_input_params['kwargs']
-                new_datastream = datastream_class(*args, **kwargs)
-                new_datastream.set_run(self.daily_path, self.run_name)
-                self.datastream_dict[new_datastream.datastream_name] = new_datastream
-                new_datastream.make_data_fields(datamodel=self)
+            for input_param_dict in datastream_dict:
+                datastream = InputParamLogger.rebuild(input_param_dict)
+                datastream.set_run(self.daily_path, self.run_name)
+                self.datastream_dict[datastream.datastream_name] = datastream
+                datastream.make_data_fields(datamodel=self)
         else:
             self.data_dict['datastreams'] = dict()
 
     def load_shot_processors(self):
         if 'shot_processors' in self.data_dict:
             shot_processor_dict = self.data_dict['shot_processors']
-            for processor_input_params in shot_processor_dict:
-                processor_class_name = processor_input_params['class_name']
-                processor_class = shot_processor_class[processor_class_name]
-                args = processor_input_params['args']
-                kwargs = processor_input_params['kwargs']
-                new_shot_processor = processor_class(*args, **kwargs)
-                self.shot_processor_dict[new_shot_processor.processor_name] = new_shot_processor
+            for input_param_dict in shot_processor_dict:
+                shot_processor = InputParamLogger.rebuild(input_param_dict)
+                self.shot_processor_dict[shot_processor.processor_name] = shot_processor
         else:
             self.data_dict['shot_processors'] = dict()
 
     def load_point_processors(self):
         if 'point_processors' in self.data_dict:
             point_processor_dict = self.data_dict['point_processors']
-            for processor_input_params in point_processor_dict:
-                processor_class_name = processor_input_params['class_name']
-                processor_class = point_processor_class[processor_class_name]
-                args = processor_input_params['args']
-                kwargs = processor_input_params['kwargs']
-                new_point_processor = processor_class(*args, **kwargs)
-                self.point_processor_dict[new_point_processor.processor_name] = new_point_processor
+            for input_param_dict in point_processor_dict:
+                point_processor = InputParamLogger.rebuild(input_param_dict)
+                self.point_processor_dict[point_processor.processor_name] = point_processor
         else:
             self.data_dict['point_processors'] = dict()
 
     def load_reporters(self):
         if 'reporters' in self.data_dict:
             reporter_dict = self.data_dict['reporters']
-            for reporter_input_params in reporter_dict:
-                reporter_class_name = reporter_input_params['class_name']
-                reporter_class = point_processor_class[reporter_class_name]
-                args = reporter_input_params['args']
-                kwargs = reporter_input_params['kwargs']
-                new_reporter = reporter_input_params(*args, **kwargs)
-                self.point_processor_dict[new_reporter.reporter_name] = new_reporter
+            for input_param_dict in reporter_dict:
+                reporter = InputParamLogger.rebuild(input_param_dict)
+                self.reporter_dict[reporter.reporter_name] = reporter
         else:
             self.data_dict['reporters'] = dict()
+
+    def load_datafields(self):
+        if 'datafields' in self.data_dict:
+            datafield_dict = self.data_dict['datafields']
+            for input_param_dict in datafield_dict:
+                datafield = InputParamLogger.rebuild(input_param_dict)
+                self.datafield_dict[datafield.field_name] = datafield
+        else:
+            self.data_dict['datafields'] = dict()
 
     def initialize_datastreams(self):
         for datastream in self.datastream_list:
