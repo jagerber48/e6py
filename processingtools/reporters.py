@@ -16,10 +16,10 @@ class Reporter(InputParamLogger):
 
 
 class AtomRefCountsReporter(Reporter):
-    def __init__(self, *, atom_counts_processor_name, ref_counts_processor_name, reporter_name='counts_reporter'):
+    def __init__(self, *, reporter_name, atom_counts_field, ref_counts_field):
         super(AtomRefCountsReporter, self).__init__(reporter_name=reporter_name)
-        self.atom_counts_processor_name = atom_counts_processor_name
-        self.ref_counts_processor_name = ref_counts_processor_name
+        self.atom_counts_field = atom_counts_field
+        self.ref_counts_field = ref_counts_field
 
     def report(self, datamodel):
         data_dict = datamodel.data_dict
@@ -31,11 +31,10 @@ class AtomRefCountsReporter(Reporter):
             shot_list = data_dict['shot_list'][point_key]
             atom_data = []
             ref_data = []
-            for shot in shot_list:
-                atom_counts = (data_dict['shot_processors'][self.atom_counts_processor_name]
-                                        ['results'][f'shot-{shot}']['counts'])
-                ref_counts = (data_dict['shot_processors'][self.ref_counts_processor_name]
-                                       ['results'][f'shot-{shot}']['counts'])
+            for shot_num in shot_list:
+                atom_counts = datamodel.get_data(self.atom_counts_field, shot_num)
+                ref_counts = datamodel.get_data(self.ref_counts_field, shot_num)
+
                 atom_data.append(atom_counts)
                 ref_data.append(ref_counts)
             fig = plt.figure(figsize=(12, 12))

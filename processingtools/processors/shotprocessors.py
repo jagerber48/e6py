@@ -1,5 +1,6 @@
 from enum import Enum
 import numpy as np
+from numpy.distutils.lib2def import output_def
 from scipy.signal import butter, filtfilt
 from scipy.constants import hbar
 from scipy.interpolate import interp1d
@@ -48,19 +49,20 @@ class CountsShotProcessor(ShotProcessor):
     class ResultKey(Enum):
         COUNTS = 'counts'
 
-    def __init__(self, *, datastream_name, frame_name, roi_slice, processor_name, reset):
+    def __init__(self, *, processor_name, frame_field_name, output_field_name, roi_slice, reset):
         super(CountsShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
-        self.datastream_name = datastream_name
-        self.frame_name = frame_name
+        self.frame_field_name = frame_field_name
+        self.output_field_name = output_field_name
         self.roi_slice = roi_slice
 
     def process_shot(self, shot_num, datamodel):
-        datastream = datamodel.datastream_dict[self.datastream_name]
-        file_path = datastream.get_file_path(shot_num)
-        frame = get_image(file_path, self.frame_name, roi_slice=self.roi_slice)
+        frame = datamodel.get_data(self.frame_field_name, shot_num)[self.roi_slice]
         counts = np.nansum(frame)
-        results_dict = {self.ResultKey.COUNTS.value: counts}
-        return results_dict
+        counts_field = DataDictField(datamodel=datamodel,
+                                     field_name=self.output_field_name,
+                                     data_source_name=self.processor_name,
+                                     scale='shot')
+        counts_field.set_data(shot_num, counts)
 
 
 rb_atom_dict = dict()
