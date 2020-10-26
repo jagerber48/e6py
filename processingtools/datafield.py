@@ -111,7 +111,7 @@ class GageRawDataField(H5DataField):
         sample_range = channel_data.attrs['input_range']
         offset_v = channel_data.attrs['dc_offset']
         scaled_data = ((sample_offset - data) / sample_res) * (sample_range / 2000.0) + offset_v
-        dt = data.attrs['dx']
+        # dt = data.attrs['dx']
         return scaled_data
 
 
@@ -124,8 +124,6 @@ class DataDictField(DataField):
                                             field_name=field_name, )
         self.data_dict = self.datamodel.data_dict
         self.scale = scale
-
-
 
     @staticmethod
     def create_sub_dict(parent_dict, child_dict_keychain):

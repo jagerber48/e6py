@@ -1,6 +1,5 @@
 from enum import Enum
 import numpy as np
-from pathlib import Path
 from scipy.signal import butter, filtfilt
 from scipy.constants import hbar
 from scipy.interpolate import interp1d

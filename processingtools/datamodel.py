@@ -10,7 +10,7 @@ def print_dict_tree(dict_tree, level=0):
             print_dict_tree(dict_tree[key], level+1)
 
 
-class DataModel:
+class DataModel(InputParamLogger):
     def __init__(self, daily_path, run_name, num_points=1, datastream_list=None, shot_processor_list=None,
                  point_processor_list=None, reporter_list=None, reset_hard=False, quiet=False):
         self.daily_path = daily_path
@@ -38,6 +38,20 @@ class DataModel:
 
         self.set_shot_lists()
 
+    @staticmethod
+    def add_subdict(parent_dict, child_dict_name, overwrite=False):
+        if child_dict_name not in parent_dict or overwrite:
+            parent_dict[child_dict_name] = dict()
+
+    def initialize_data_dict(self):
+        sub_dict_list = ['datastreams', 'shot_processors', 'point_processors', 'reporters', 'datafields']
+        for dict_name in sub_dict_list:
+            self.add_subdict(self.data_dict, dict_name, overwrite=False)
+
+
+    def add_from_input_params(self, datastream_list, shot_processor_list, point_processor_list, reporter_list):
+        for datastream in datastream_list:
+
     def load_datamodel(self, reset_hard):
         self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
         self.load_datastream()
@@ -47,51 +61,36 @@ class DataModel:
         self.load_datafields()
 
     def load_datastream(self):
-        if 'datastreams' in self.data_dict:
-            datastream_dict = self.data_dict['datastreams']
-            for input_param_dict in datastream_dict:
-                datastream = InputParamLogger.rebuild(input_param_dict)
-                datastream.set_run(self.daily_path, self.run_name)
-                self.datastream_dict[datastream.datastream_name] = datastream
-                datastream.make_data_fields(datamodel=self)
-        else:
-            self.data_dict['datastreams'] = dict()
+        datastream_dict = self.data_dict['datastreams']
+        for input_param_dict in datastream_dict:
+            datastream = InputParamLogger.rebuild(input_param_dict)
+            datastream.set_run(self.daily_path, self.run_name)
+            self.datastream_dict[datastream.datastream_name] = datastream
+            datastream.make_data_fields(datamodel=self)
 
     def load_shot_processors(self):
-        if 'shot_processors' in self.data_dict:
-            shot_processor_dict = self.data_dict['shot_processors']
-            for input_param_dict in shot_processor_dict:
-                shot_processor = InputParamLogger.rebuild(input_param_dict)
-                self.shot_processor_dict[shot_processor.processor_name] = shot_processor
-        else:
-            self.data_dict['shot_processors'] = dict()
+        shot_processor_dict = self.data_dict['shot_processors']
+        for input_param_dict in shot_processor_dict:
+            shot_processor = InputParamLogger.rebuild(input_param_dict)
+            self.shot_processor_dict[shot_processor.processor_name] = shot_processor
 
     def load_point_processors(self):
-        if 'point_processors' in self.data_dict:
-            point_processor_dict = self.data_dict['point_processors']
-            for input_param_dict in point_processor_dict:
-                point_processor = InputParamLogger.rebuild(input_param_dict)
-                self.point_processor_dict[point_processor.processor_name] = point_processor
-        else:
-            self.data_dict['point_processors'] = dict()
+        point_processor_dict = self.data_dict['point_processors']
+        for input_param_dict in point_processor_dict:
+            point_processor = InputParamLogger.rebuild(input_param_dict)
+            self.point_processor_dict[point_processor.processor_name] = point_processor
 
     def load_reporters(self):
-        if 'reporters' in self.data_dict:
-            reporter_dict = self.data_dict['reporters']
-            for input_param_dict in reporter_dict:
-                reporter = InputParamLogger.rebuild(input_param_dict)
-                self.reporter_dict[reporter.reporter_name] = reporter
-        else:
-            self.data_dict['reporters'] = dict()
+        reporter_dict = self.data_dict['reporters']
+        for input_param_dict in reporter_dict:
+            reporter = InputParamLogger.rebuild(input_param_dict)
+            self.reporter_dict[reporter.reporter_name] = reporter
 
     def load_datafields(self):
-        if 'datafields' in self.data_dict:
-            datafield_dict = self.data_dict['datafields']
-            for input_param_dict in datafield_dict:
-                datafield = InputParamLogger.rebuild(input_param_dict)
-                self.datafield_dict[datafield.field_name] = datafield
-        else:
-            self.data_dict['datafields'] = dict()
+        datafield_dict = self.data_dict['datafields']
+        for input_param_dict in datafield_dict:
+            datafield = InputParamLogger.rebuild(input_param_dict)
+            self.datafield_dict[datafield.field_name] = datafield
 
     def initialize_datastreams(self):
         for datastream in self.datastream_list:
