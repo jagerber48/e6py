@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import h5py
 from uncertainties import ufloat
-from .datatools import dataset_from_keychain, shot_to_loop_and_point
+from .datatools import dataset_from_keychain, shot_to_loop_and_point, InputParamLogger
 from .fittools import lorentzian_fit_function
 
 
-class Reporter:
+class Reporter(InputParamLogger):
     def __init__(self, *, reporter_name):
         self.reporter_name = reporter_name
 

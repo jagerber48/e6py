@@ -32,7 +32,7 @@ class DataModel(InputParamLogger):
 
         self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
         self.initialize_data_dict()
-        self.load_datamodel(reset_hard=reset_hard)
+        self.load_datamodel()
         self.add_from_input_params(datastream_list, shot_processor_list, point_processor_list, reporter_list)
         self.set_shot_lists()
         self.data_dict.save_dict()
@@ -43,19 +43,20 @@ class DataModel(InputParamLogger):
             parent_dict[child_dict_name] = dict()
 
     def initialize_data_dict(self):
-        sub_dict_list = ['datastreams', 'shot_processors', 'point_processors', 'reporters', 'datafields']
+        sub_dict_list = ['datastreams', 'shot_processors', 'point_processors', 'reporters', 'datafields',
+                         'shot_data', 'point_data']
         for dict_name in sub_dict_list:
             self.add_subdict(self.data_dict, dict_name, overwrite=False)
 
     def add_from_input_params(self, datastream_list, shot_processor_list, point_processor_list, reporter_list):
         for datastream in datastream_list:
-            self.data_dict['datastreams'][datastream.datastream_name] = datastream.input_param_dict
+            self.add_datastream(datastream)
         for shot_processor in shot_processor_list:
-            self.data_dict['shot_processors'][shot_processor.processor_name] = shot_processor.input_param_dict
+            self.add_shot_processor(shot_processor)
         for point_processor in point_processor_list:
-            self.data_dict['point_processors'][point_processor.processor_name] = point_processor.input_param_dict
+            self.add_point_processor(point_processor)
         for reporter in reporter_list:
-            self.data_dict['reporters'][reporter.reporter_name] = reporter.input_param_dict
+            self.add_reporter(reporter)
 
     def add_datastream(self, datastream):
         name = datastream.datastream_name
@@ -67,6 +68,8 @@ class DataModel(InputParamLogger):
             self.num_shots = datastream.num_shots
         elif datastream.num_shots != self.num_shots:
             print(f'Warning, num_shots for datastream: "{name}" incommensurate with datamodel num_shots!')
+
+        datastream.make_data_fields(datamodel=self)
 
     def add_shot_processor(self, shot_processor):
         name = shot_processor.processor_name
@@ -88,8 +91,7 @@ class DataModel(InputParamLogger):
         self.datafield_dict[name] = datafield
         self.data_dict['datafields'][name] = datafield.input_param_dict
 
-    def load_datamodel(self, reset_hard):
-        self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
+    def load_datamodel(self):
         self.load_datastreams()
         self.load_shot_processors()
         self.load_point_processors()

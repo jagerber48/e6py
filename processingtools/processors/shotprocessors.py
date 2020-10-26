@@ -22,20 +22,20 @@ class ShotProcessor(Processor):
         super(ShotProcessor, self).__init__(processor_name=processor_name, scale=ProcessorScale.SHOT)
         self.reset = reset
 
-    def scaled_process(self, datamodel, processor_dict, quiet=False):
-        if 'processed_shots' not in processor_dict:
-            processor_dict['processed_shots'] = []
-
+    def scaled_process(self, datamodel, quiet=False):
         data_dict = datamodel.data_dict
+        datamodel.add_subdict(data_dict['shot_data'], self.processor_name, overwrite=self.reset)
+        processor_output_dict = data_dict['shot_data'][self.processor_name]
+        if 'processed_shots' not in processor_output_dict:
+            processor_output_dict['processed_shots'] = []
 
         num_shots = data_dict['num_shots']
         for shot_num in range(num_shots):
             shot_key = f'shot-{shot_num:d}'
-            print(processor_dict['processed_shots'])
-            if shot_num not in processor_dict['processed_shots'] or self.reset:
+            if shot_num not in processor_output_dict['processed_shots'] or self.reset:
                 qprint(f'processing {shot_key}', quiet=quiet)
                 self.process_shot(shot_num, datamodel)
-                processor_dict['processed_shots'].append(shot_num)
+                processor_output_dict['processed_shots'].append(shot_num)
                 data_dict.save_dict(quiet=True)
             else:
                 qprint(f'skipping processing {shot_key}', quiet=quiet)
@@ -235,7 +235,7 @@ class HetDemodulationShotProcessor(ShotProcessor):
                                          data_source_name=self.processor_name,
                                          field_name=self.output_data_fields[idx],
                                          file_prefix='iteration', h5_subpath=key, mode='processed')
-            datamodel.add_data_field(new_data_field)
+            datamodel.add_datafield(new_data_field)
             new_data_field.set_data(shot_num, data)
 
             dt = np.mean(np.diff(time_series))
