@@ -11,11 +11,12 @@ def print_dict_tree(dict_tree, level=0):
 
 
 class DataModel(InputParamLogger):
-    def __init__(self, daily_path, run_name, num_points=1, datastream_list=None, shot_processor_list=None,
-                 point_processor_list=None, reporter_list=None, reset_hard=False, quiet=False):
+    def __init__(self, *, daily_path, run_name, num_points, run_doc_string, datastream_list, shot_processor_list,
+                 point_processor_list, reporter_list, reset_hard, quiet):
         self.daily_path = daily_path
         self.run_name = run_name
         self.num_points = num_points
+        self.run_doc_string = run_doc_string
         self.quiet = quiet
 
         datastream_list = to_list(datastream_list)
@@ -47,6 +48,7 @@ class DataModel(InputParamLogger):
                          'shot_data', 'point_data']
         for dict_name in sub_dict_list:
             self.add_subdict(self.data_dict, dict_name, overwrite=False)
+        self.data_dict['run_doc_string'] = self.run_doc_string
 
     def add_from_input_params(self, datastream_list, shot_processor_list, point_processor_list, reporter_list):
         for datastream in datastream_list:
