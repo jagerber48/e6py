@@ -181,11 +181,11 @@ class AllShotsReporter(Reporter):
         raise NotImplementedError
 
 
-class ImageAllShotsReporter(AllShotsReporter):
-    def __init__(self, *, reporter_name, image_dir_path, file_prefix, image_name, reset):
-        super(ImageAllShotsReporter, self).__init__(reporter_name=reporter_name, reset=reset)
-        self.image_dir_path = image_dir_path
-        self.file_prefix = file_prefix
+# class ImageAllShotsReporter(AllShotsReporter):
+#     def __init__(self, *, reporter_name, image_dir_path, file_prefix, image_name, reset):
+#         super(ImageAllShotsReporter, self).__init__(reporter_name=reporter_name, reset=reset)
+#         self.image_dir_path = image_dir_path
+#         self.file_prefix = file_prefix
 
 
 class GaussianFitAllShotsReporter(AllShotsReporter):
@@ -283,8 +283,6 @@ class LorFitAllShotsReporter(AllShotsReporter):
 
     # noinspection PyPep8Naming
     def report_shot(self, shot_num, datamodel):
-        data_dict = datamodel.data_dict
-        shot_key = f'shot-{shot_num:d}'
         fit_struct = datamodel.get_data(self.lor_fit_data_field, shot_num)
 
         x_data = fit_struct['input_data']

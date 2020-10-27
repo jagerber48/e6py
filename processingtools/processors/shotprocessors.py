@@ -280,14 +280,14 @@ class HetDemodulationShotProcessor(ShotProcessor):
         return I_xr, Q_xr, A_xr, phi_xr, time_data
 
 
-class AbsorptionGaussianFitShotProcessor(ShotProcessor):
-    def __init__(self, *, processor_name, number_frame_field_name, output_field_name, reset):
-        super(AbsorptionGaussianFitShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
-        self.number_frame_field_name = number_frame_field_name
+class GaussianFitShotProcessor(ShotProcessor):
+    def __init__(self, *, processor_name, input_frame_field_name, output_field_name, reset):
+        super(GaussianFitShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
+        self.input_frame_field_name = input_frame_field_name
         self.output_field_name = output_field_name
 
     def process_shot(self, shot_num, datamodel):
-        frame = datamodel.get_data(self.number_frame_field_name, shot_num)
+        frame = datamodel.get_data(self.input_frame_field_name, shot_num)
         fit_struct = fit_gaussian2d(frame, show_plot=False, save_name=None, quiet=True)
         output_field = DataDictField(datamodel=datamodel,
                                      field_name=self.output_field_name,
