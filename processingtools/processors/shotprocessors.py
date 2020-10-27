@@ -1,12 +1,10 @@
 from enum import Enum
 import numpy as np
-from numpy.distutils.lib2def import output_def
 from scipy.signal import butter, filtfilt
 from scipy.constants import hbar
 from scipy.interpolate import interp1d
 import h5py
 import xarray as xr
-from ..imagetools import get_image
 from ..datatools import qprint
 from ..datastream import get_gagescope_trace
 from ..datafield import H5DataField, DataDictField

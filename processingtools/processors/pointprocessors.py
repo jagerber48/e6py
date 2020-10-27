@@ -2,6 +2,7 @@ import numpy as np
 from enum import Enum
 from ..imagetools import get_image
 from ..datatools import qprint
+from ..datafield import DataDictField
 from .processor import Processor, ProcessorScale
 
 
@@ -9,25 +10,32 @@ class PointProcessor(Processor):
     class ResultKey(Enum):
         pass
 
-    def __init__(self, *, processor_name):
+    def __init__(self, *, processor_name, reset):
         super(PointProcessor, self).__init__(processor_name=processor_name, scale=ProcessorScale.POINT)
+        self.reset = reset
 
-    def scaled_process(self, datamodel, processor_dict, quiet=False):
+    def scaled_process(self, datamodel, quiet=False):
         data_dict = datamodel.data_dict
         num_points = data_dict['num_points']
+        datamodel.add_subdict(data_dict['point_data'], self.processor_name, overwrite=self.reset)
+        processor_output_dict = data_dict['point_data'][self.processor_name]
+        if 'processed_shots' not in processor_output_dict:
+            processor_output_dict['processed_shots'] = dict()
+            for point_num in range(num_points):
+                point_key = f'point-{point_num:d}'
+                processor_output_dict['processed_shots'][point_key] = []
 
         for point in range(num_points):
             point_key = f'point-{point:d}'
             try:
-                old_processed_shots = list(processor_dict['results'][point_key]['processed_shots'])
+                old_processed_shots = list(processor_output_dict['processed_shots'][point_key])
             except KeyError:
                 old_processed_shots = []
             shots_to_be_processed = list(data_dict['shot_list'][point_key])
             if shots_to_be_processed != old_processed_shots:
                 qprint(f'processing {point_key}', quiet=quiet)
-                results_dict = self.process_point(point, datamodel)
-                processor_dict['results'][point_key] = results_dict
-                processor_dict['results'][point_key]['processed_shots'] = shots_to_be_processed
+                self.process_point(point, datamodel)
+                processor_output_dict['processed_shots'][point_key] = shots_to_be_processed
                 data_dict.save_dict(quiet=True)
             else:
                 qprint(f'skipping processing {point_key}', quiet=quiet)
@@ -167,25 +175,26 @@ class CountsThresholdPointProcessor(PointProcessor):
         NUM_BELOW = 'num_below'
         FRAC_BELOW = 'frac_below'
 
-    def __init__(self, *, processor_name, counts_processor_name, threshold):
-        super(CountsThresholdPointProcessor, self).__init__(processor_name=processor_name)
-        self.count_processor_name = counts_processor_name
+    def __init__(self, *, processor_name, counts_field_name, output_field_name, threshold, reset):
+        super(CountsThresholdPointProcessor, self).__init__(processor_name=processor_name, reset=reset)
+        self.counts_field_name = counts_field_name
+        self.output_field_name = output_field_name
         self.threshold = threshold
 
     def process_point(self, point, datamodel):
         data_dict = datamodel.data_dict
-        shot_list = datamodel.data_dict['shot_list'][f'point-{point:d}']
+        shot_list = data_dict['shot_list'][f'point-{point:d}']
 
         shots_above_list = []
         shots_below_list = []
 
         for shot_num in shot_list:
             shot_key = f'shot-{shot_num:d}'
-            counts = data_dict['shot_processors'][self.count_processor_name]['results'][shot_key]['counts']
+            counts = datamodel.get_data(self.counts_field_name, shot_num)
             if counts > self.threshold:
-                shots_above_list.append(counts)
+                shots_above_list.append(shot_num)
             elif counts <= self.threshold:
-                shots_below_list.append(counts)
+                shots_below_list.append(shot_num)
 
         num_total = len(shot_list)
 
@@ -203,4 +212,11 @@ class CountsThresholdPointProcessor(PointProcessor):
         results_dict[self.ResultKey.SHOTS_BELOW.value] = shots_below_list
         results_dict[self.ResultKey.NUM_BELOW.value] = num_below
         results_dict[self.ResultKey.FRAC_BELOW.value] = frac_below
+
+        output_field = DataDictField(datamodel=datamodel,
+                                     field_name = self.output_field_name,
+                                     data_source_name=self.processor_name,
+                                     scale='point')
+        output_field.set_data(point, results_dict)
+
         return results_dict

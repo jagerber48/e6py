@@ -11,6 +11,11 @@ class Reporter(InputParamLogger):
     def __init__(self, *, reporter_name):
         self.reporter_name = reporter_name
 
+    def get_save_dir(self, datamodel):
+        daily_path = datamodel.daily_path
+        save_dir = Path(daily_path, 'analysis', 'reporters', self.reporter_name)
+        return save_dir
+
     def report(self, datamodel):
         raise NotImplementedError
 
@@ -55,9 +60,8 @@ class AtomRefCountsReporter(Reporter):
             fig.suptitle(figure_title, fontsize=16)
             fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
-            daily_path = data_dict['daily_path']
-            save_path = Path(daily_path, 'analysis', run_name)
-            save_file_path = Path(save_path, f'{figure_title}.png')
+            save_dir = self.get_save_dir(datamodel)
+            save_file_path = Path(save_dir, f'{figure_title}.png')
             fig.savefig(save_file_path)
 
         plt.show()
