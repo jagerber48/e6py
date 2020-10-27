@@ -1,6 +1,5 @@
 import numpy as np
 from enum import Enum
-from ..imagetools import get_image
 from ..datatools import qprint
 from ..datafield import DataDictField
 from .processor import Processor, ProcessorScale
@@ -48,8 +47,8 @@ class MeanStdPointProcessor(PointProcessor):
     class ResultKey(Enum):
         pass
 
-    def __init__(self, *, processor_name, source_processor_name):
-        super(MeanStdPointProcessor, self).__init__(processor_name=processor_name)
+    def __init__(self, *, processor_name, source_processor_name, reset):
+        super(MeanStdPointProcessor, self).__init__(processor_name=processor_name, reset=reset)
         self.source_processor_name = source_processor_name
 
     def process_point(self, point, datamodel):
@@ -200,7 +199,6 @@ class CountsThresholdPointProcessor(PointProcessor):
         shots_below_list = []
 
         for shot_num in shot_list:
-            shot_key = f'shot-{shot_num:d}'
             counts = datamodel.get_data(self.counts_field_name, shot_num)
             if counts > self.threshold:
                 shots_above_list.append(shot_num)
@@ -225,7 +223,7 @@ class CountsThresholdPointProcessor(PointProcessor):
         results_dict[self.ResultKey.FRAC_BELOW.value] = frac_below
 
         output_field = DataDictField(datamodel=datamodel,
-                                     field_name = self.output_field_name,
+                                     field_name=self.output_field_name,
                                      data_source_name=self.processor_name,
                                      scale='point')
         output_field.set_data(point, results_dict)
