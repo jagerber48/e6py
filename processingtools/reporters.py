@@ -12,8 +12,10 @@ class Reporter(InputParamLogger):
         self.reporter_name = reporter_name
 
     def get_save_dir(self, datamodel):
-        daily_path = datamodel.daily_path
-        save_dir = Path(daily_path, 'analysis', 'reporters', self.reporter_name)
+        data_dict = datamodel.data_dict
+        daily_path = data_dict['daily_path']
+        run_name = datamodel.data_dict['run_name']
+        save_dir = Path(daily_path, 'analysis', run_name, 'reporters', self.reporter_name)
         return save_dir
 
     def report(self, datamodel):
@@ -61,6 +63,7 @@ class AtomRefCountsReporter(Reporter):
             fig.tight_layout(rect=[0, 0.03, 1, 0.95])
 
             save_dir = self.get_save_dir(datamodel)
+            save_dir.mkdir(parents=True, exist_ok=True)
             save_file_path = Path(save_dir, f'{figure_title}.png')
             fig.savefig(save_file_path)
 

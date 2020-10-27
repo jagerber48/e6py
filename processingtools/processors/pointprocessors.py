@@ -95,29 +95,25 @@ class MeanStdPointProcessor(PointProcessor):
 
 
 class AvgAtomRefImagePointProcessor(PointProcessor):
-    class ResultKey(Enum):
-        AVERAGE_ATOM_IMG = 'avg_atom_img'
-        AVERAGE_REF_IMG = 'avg_ref_img'
-
-    def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice, processor_name):
-        super(AvgAtomRefImagePointProcessor, self).__init__(processor_name=processor_name)
-        self.datastream_name = datastream_name
-        self.atom_frame_name = atom_frame_name
-        self.ref_frame_name = ref_frame_name
+    def __init__(self, *, processor_name, atom_frame_field_name, ref_frame_field_name,
+                 avg_atom_field_name, avg_ref_field_name, roi_slice, reset):
+        super(AvgAtomRefImagePointProcessor, self).__init__(processor_name=processor_name, reset=reset)
+        self.atom_frame_field_name = atom_frame_field_name
+        self.ref_frame_field_name = ref_frame_field_name
+        self.avg_atom_field_name = avg_atom_field_name
+        self.avg_ref_field_name = avg_ref_field_name
         self.roi_slice = roi_slice
 
     def process_point(self, point, datamodel):
         data_dict = datamodel.data_dict
         point_key = f'point-{point:d}'
-        datastream = datamodel.datastream_dict[self.datastream_name]
         avg_atom_frame = None
         avg_ref_frame = None
         shot_list = data_dict['shot_list'][point_key]
         num_loops = data_dict['loop_nums'][point_key]
         for shot_num in shot_list:
-            file_path = datastream.get_file_path(shot_num)
-            atom_frame = get_image(file_path, self.atom_frame_name, roi_slice=self.roi_slice)
-            ref_frame = get_image(file_path, self.ref_frame_name, roi_slice=self.roi_slice)
+            atom_frame = datamodel.get_data(self.atom_frame_field_name, shot_num)[self.roi_slice]
+            ref_frame = datamodel.get_data(self.ref_frame_field_name, shot_num)[self.roi_slice]
             if avg_atom_frame is None:
                 avg_atom_frame = atom_frame
                 avg_ref_frame = ref_frame
@@ -126,42 +122,57 @@ class AvgAtomRefImagePointProcessor(PointProcessor):
                 avg_ref_frame += ref_frame
         avg_atom_frame = avg_atom_frame / num_loops
         avg_ref_frame = avg_ref_frame / num_loops
-        results_dict = dict()
-        results_dict[self.ResultKey.AVERAGE_ATOM_IMG.value] = avg_atom_frame
-        results_dict[self.ResultKey.AVERAGE_REF_IMG.value] = avg_ref_frame
-        return results_dict
+
+        avg_atom_field = DataDictField(datamodel=datamodel,
+                                       field_name=self.avg_atom_field_name,
+                                       data_source_name=self.processor_name,
+                                       scale='point')
+        avg_ref_field = DataDictField(datamodel=datamodel,
+                                      field_name=self.avg_ref_field_name,
+                                      data_source_name=self.processor_name,
+                                      scale='point')
+
+        avg_atom_field.set_data(point, avg_atom_frame)
+        avg_ref_field.set_data(point, avg_ref_frame)
 
 
 class RandomAtomRefImagePointProcessor(PointProcessor):
-    class ResultKey(Enum):
-        RANDOM_ATOM_IMG = 'random_atom_img'
-        RANDOM_REF_IMG = 'random_ref_img'
-        RANDOM_SHOT_NUM = 'random_shot_num'
-
-    def __init__(self, *, datastream_name, atom_frame_name, ref_frame_name, roi_slice,
-                 processor_name):
-        super(RandomAtomRefImagePointProcessor, self).__init__(processor_name=processor_name)
-        self.datastream_name = datastream_name
-        self.atom_frame_name = atom_frame_name
-        self.ref_frame_name = ref_frame_name
+    def __init__(self, *, processor_name,
+                 atom_frame_field_name, ref_frame_field_name,
+                 rndm_atom_field_name, rndm_ref_field_name, rndm_shot_field_name,
+                 roi_slice, reset):
+        super(RandomAtomRefImagePointProcessor, self).__init__(processor_name=processor_name, reset=reset)
+        self.atom_frame_field_name = atom_frame_field_name
+        self.ref_frame_field_name = ref_frame_field_name
+        self.rndm_atom_field_name = rndm_atom_field_name
+        self.rndm_ref_field_name = rndm_ref_field_name
+        self.rndm_shot_field_name = rndm_shot_field_name
         self.roi_slice = roi_slice
 
     def process_point(self, point, datamodel):
-        datastream = datamodel.datastream_dict[self.datastream_name]
-        random_atom_frame = None
-        random_ref_frame = None
-        shot_list = datamodel.data_dict['shot_list'][f'point-{point:d}']
+        data_dict = datamodel.data_dict
+        point_key = f'point-{point:d}'
+        shot_list = data_dict['shot_list'][point_key]
         random_shot = np.random.choice(shot_list)
-        for shot_num in shot_list:
-            if shot_num == random_shot:
-                file_path = datastream.get_file_path(shot_num)
-                random_atom_frame = get_image(file_path, self.atom_frame_name, roi_slice=self.roi_slice)
-                random_ref_frame = get_image(file_path, self.ref_frame_name, roi_slice=self.roi_slice)
-        results_dict = dict()
-        results_dict[self.ResultKey.RANDOM_ATOM_IMG.value] = random_atom_frame
-        results_dict[self.ResultKey.RANDOM_REF_IMG.value] = random_ref_frame
-        results_dict[self.ResultKey.RANDOM_SHOT_NUM.value] = random_shot
-        return results_dict
+        rndm_atom_frame = datamodel.get_data(self.atom_frame_field_name, random_shot)[self.roi_slice]
+        rndm_ref_frame = datamodel.get_data(self.ref_frame_field_name, random_shot)[self.roi_slice]
+
+        rndm_atom_field = DataDictField(datamodel=datamodel,
+                                        field_name=self.rndm_atom_field_name,
+                                        data_source_name=self.processor_name,
+                                        scale='point')
+        rndm_ref_field = DataDictField(datamodel=datamodel,
+                                       field_name=self.rndm_ref_field_name,
+                                       data_source_name=self.processor_name,
+                                       scale='point')
+        rndm_shot_field = DataDictField(datamodel=datamodel,
+                                        field_name=self.rndm_shot_field_name,
+                                        data_source_name=self.processor_name,
+                                        scale='point')
+
+        rndm_atom_field.set_data(point, rndm_atom_frame)
+        rndm_ref_field.set_data(point, rndm_ref_frame)
+        rndm_shot_field.set_data(point, random_shot)
 
 
 class CountsThresholdPointProcessor(PointProcessor):
