@@ -23,7 +23,6 @@ class ShotProcessor(Processor):
 
     def scaled_process(self, datamodel, quiet=False):
         data_dict = datamodel.data_dict
-        datamodel.add_subdict(data_dict['shot_data'], self.processor_name, overwrite=self.reset)
         processor_output_dict = data_dict['shot_data'][self.processor_name]
         if 'processed_shots' not in processor_output_dict:
             processor_output_dict['processed_shots'] = []
