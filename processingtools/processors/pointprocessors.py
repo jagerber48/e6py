@@ -111,8 +111,8 @@ class AvgAtomRefImagePointProcessor(PointProcessor):
         shot_list = data_dict['shot_list'][point_key]
         num_loops = data_dict['loop_nums'][point_key]
         for shot_num in shot_list:
-            atom_frame = datamodel.get_data(self.atom_frame_field_name, shot_num)[self.roi_slice]
-            ref_frame = datamodel.get_data(self.ref_frame_field_name, shot_num)[self.roi_slice]
+            atom_frame = datamodel.get_data(self.atom_frame_field_name, shot_num)[self.roi_slice].astype(float)
+            ref_frame = datamodel.get_data(self.ref_frame_field_name, shot_num)[self.roi_slice].astype(float)
             if avg_atom_frame is None:
                 avg_atom_frame = atom_frame
                 avg_ref_frame = ref_frame
