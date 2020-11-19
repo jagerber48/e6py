@@ -10,18 +10,72 @@ def print_dict_tree(dict_tree, level=0):
             print_dict_tree(dict_tree[key], level+1)
 
 
-class DataModel(InputParamLogger):
-    def __init__(self, daily_path, run_name, num_points=1, datastream_list=None, shot_processor_list=None,
-                 point_processor_list=None, reporter_list=None, reset_hard=False, quiet=False):
-        self.daily_path = daily_path
-        self.run_name = run_name
-        self.num_points = num_points
-        self.quiet = quiet
+def reload_data_model(*, daily_path, run_name, run_doc_string, num_points,
+                      datastream_list, shot_processor_list,
+                      point_processor_list, reporter_list,
+                      quiet, reset_hard):
+    data_model_dir = Path(daily_path, 'analysis', run_name)
+    data_model_filename = f'{run_name}-datamodel.p'
+    data_model_path = Path(data_model_dir, data_model_filename)
 
-        datastream_list = to_list(datastream_list)
-        shot_processor_list = to_list(shot_processor_list)
-        point_processor_list = to_list(point_processor_list)
-        reporter_list = to_list(reporter_list)
+    if reset_hard:
+        qprint(f'Creating {data_model_filename} in {data_model_path}', quiet=quiet)
+        datamodel = create_data_model(daily_path=daily_path, run_name=run_name, run_doc_string=run_doc_string,
+                                      num_points=num_points, quiet=quiet)
+    else:
+        if data_model_path.exists():
+            datamodel = load_data_model(daily_path, run_name, quiet=quiet)
+        else:
+            qprint(f'Creating {data_model_filename} in {data_model_path}', quiet=quiet)
+            datamodel = create_data_model(daily_path=daily_path, run_name=run_name, run_doc_string=run_doc_string,
+                                          num_points=num_points, quiet=quiet)
+
+    add_to_datamodel(datamodel=datamodel, datastream_list=datastream_list, shot_processor_list=shot_processor_list,
+                     point_processor_list=point_processor_list, reporter_list=reporter_list)
+
+
+def load_data_model(daily_path, run_name, quiet=False):
+    data_model_dir = Path(daily_path, 'analysis', run_name)
+    data_model_filename = f'{run_name}-datamodel.p'
+    data_model_path = Path(data_model_dir, data_model_filename)
+
+    qprint(f'Loading data_dict from {data_model_path}', quiet=quiet)
+    data_dict = pickle.load(open(data_model_path, 'rb'))
+    datamodel = DataModel(data_dict=data_dict, quiet=quiet)
+    return datamodel
+
+
+def create_data_model(*, daily_path, run_name, run_doc_string, num_points, quiet):
+    data_dict = DataModelDict(daily_path=daily_path, run_name=run_name,
+                              run_doc_string=run_doc_string, num_points=num_points)
+    datamodel = DataModel(data_dict, quiet=quiet)
+    return datamodel
+
+
+def add_to_datamodel(*, datamodel, datastream_list, shot_processor_list, point_processor_list, reporter_list):
+    datastream_list = to_list(datastream_list)
+    shot_processor_list = to_list(shot_processor_list)
+    point_processor_list = to_list(point_processor_list)
+    reporter_list = to_list(reporter_list)
+
+    for datastream in datastream_list:
+        datamodel.add_datastream(datastream)
+    for shot_processor in shot_processor_list:
+        datamodel.add_shot_processor(shot_processor)
+    for point_processor in point_processor_list:
+        datamodel.add_point_processor(point_processor)
+    for reporter in reporter_list:
+        datamodel.add_reporter(reporter)
+
+
+class DataModel:
+    def __init__(self, data_dict, quiet):
+        self.data_dict = data_dict
+        self.daily_path = self.data_dict['daily_path']
+        self.run_name = self.data_dict['run_name']
+        self.num_points = self.data_dict['num_points']
+        self.run_doc_string = self.data_dict['run_doc_string']
+        self.quiet = quiet
 
         self.datastream_dict = dict()
         self.shot_processor_dict = dict()
@@ -30,10 +84,7 @@ class DataModel(InputParamLogger):
         self.datafield_dict = dict()
         self.num_shots = None
 
-        self.data_dict = DataModelDict(self.daily_path, self.run_name, reset_hard=reset_hard)
-        self.initialize_data_dict()
         self.load_datamodel()
-        self.add_from_input_params(datastream_list, shot_processor_list, point_processor_list, reporter_list)
         self.set_shot_lists()
         self.data_dict.save_dict()
 
@@ -41,22 +92,6 @@ class DataModel(InputParamLogger):
     def add_subdict(parent_dict, child_dict_name, overwrite=False):
         if child_dict_name not in parent_dict or overwrite:
             parent_dict[child_dict_name] = dict()
-
-    def initialize_data_dict(self):
-        sub_dict_list = ['datastreams', 'shot_processors', 'point_processors', 'reporters', 'datafields',
-                         'shot_data', 'point_data']
-        for dict_name in sub_dict_list:
-            self.add_subdict(self.data_dict, dict_name, overwrite=False)
-
-    def add_from_input_params(self, datastream_list, shot_processor_list, point_processor_list, reporter_list):
-        for datastream in datastream_list:
-            self.add_datastream(datastream)
-        for shot_processor in shot_processor_list:
-            self.add_shot_processor(shot_processor)
-        for point_processor in point_processor_list:
-            self.add_point_processor(point_processor)
-        for reporter in reporter_list:
-            self.add_reporter(reporter)
 
     def add_datastream(self, datastream):
         name = datastream.datastream_name
@@ -73,11 +108,23 @@ class DataModel(InputParamLogger):
 
     def add_shot_processor(self, shot_processor):
         name = shot_processor.processor_name
+        if name in self.data_dict['shot_processors']:
+            old_input_params = self.data_dict['shot_processors'][name]
+            new_input_params = shot_processor.input_param_dict
+            if new_input_params != old_input_params:
+                print(f'overwriting and resetting shot processor: {name}')
+                shot_processor.reset = True
         self.shot_processor_dict[name] = shot_processor
         self.data_dict['shot_processors'][name] = shot_processor.input_param_dict
 
     def add_point_processor(self, point_processor):
         name = point_processor.processor_name
+        if name in self.data_dict['point_processors']:
+            old_input_params = self.data_dict['point_processors'][name]
+            new_input_params = point_processor.input_param_dict
+            if new_input_params != old_input_params:
+                print(f'overwriting and resetting point processor: {name}')
+                point_processor.reset = True
         self.point_processor_dict[name] = point_processor
         self.data_dict['point_processors'][name] = point_processor.input_param_dict
 
@@ -157,7 +204,6 @@ class DataModel(InputParamLogger):
         if 'num_points' in self.data_dict:
             if self.data_dict['num_points'] != self.num_points:
                 self.data_dict['point_processors'] = dict()
-        self.data_dict['num_points'] = self.num_points
         self.data_dict['num_shots'] = self.num_shots
         self.data_dict['shot_list'] = dict()
         self.data_dict['loop_nums'] = dict()
@@ -169,34 +215,28 @@ class DataModel(InputParamLogger):
 
 
 class DataModelDict:
-    def __init__(self, daily_path, run_name, reset_hard=False, quiet=False):
+    def __init__(self, daily_path, run_name, run_doc_string, num_points, quiet=False):
         self.daily_path = daily_path
         self.run_name = run_name
+        self.run_doc_string = run_doc_string
+        self.num_points = num_points
         self.quiet = quiet
-        self.dir_path = Path(self.daily_path, 'analysis', self.run_name)
-        self.dir_path.mkdir(parents=True, exist_ok=True)
-        self.filename = f'{run_name}-datamodel.p'
-        self.file_path = Path(self.dir_path, self.filename)
-        if not reset_hard:
-            self.data_dict = self.load_dict(quiet=self.quiet)
-        else:
-            self.create_dict()
 
-    def create_dict(self):
+        dir_path = Path(self.daily_path, 'analysis', self.run_name)
+        dir_path.mkdir(parents=True, exist_ok=True)
+        filename = f'{run_name}-datamodel.p'
+        self.file_path = Path(dir_path, filename)
+
         self.data_dict = dict()
         self.data_dict['daily_path'] = self.daily_path
         self.data_dict['run_name'] = self.run_name
+        self.data_dict['run_doc_string'] = self.run_doc_string
+        self.data_dict['num_points'] = num_points
+        sub_dict_list = ['datastreams', 'shot_processors', 'point_processors', 'reporters', 'datafields',
+                         'shot_data', 'point_data']
+        for sub_dict in sub_dict_list:
+            self.data_dict[sub_dict] = dict()
         self.save_dict(quiet=self.quiet)
-
-    def load_dict(self, quiet=False):
-        try:
-            qprint(f'Loading data_dict from {self.file_path}', quiet)
-            self.data_dict = pickle.load(open(self.file_path, 'rb'))
-        except (FileNotFoundError, EOFError) as e:
-            qprint(e, quiet=quiet)
-            qprint(f'Creating {self.filename} in {self.dir_path}', quiet=quiet)
-            self.create_dict()
-        return self.data_dict
 
     def save_dict(self, quiet=False):
         qprint(f'Saving data_dict to {self.file_path}', quiet=quiet)

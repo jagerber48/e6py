@@ -48,19 +48,20 @@ class CountsShotProcessor(ShotProcessor):
     class ResultKey(Enum):
         COUNTS = 'counts'
 
-    def __init__(self, *, datastream_name, frame_name, roi_slice, processor_name, reset):
+    def __init__(self, *, processor_name, frame_field_name, output_field_name, roi_slice, reset):
         super(CountsShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
-        self.datastream_name = datastream_name
-        self.frame_name = frame_name
+        self.frame_field_name = frame_field_name
+        self.output_field_name = output_field_name
         self.roi_slice = roi_slice
 
     def process_shot(self, shot_num, datamodel):
-        datastream = datamodel.datastream_dict[self.datastream_name]
-        file_path = datastream.get_file_path(shot_num)
-        frame = get_image(file_path, self.frame_name, roi_slice=self.roi_slice)
+        frame = datamodel.get_data(self.frame_field_name, shot_num)[self.roi_slice]
         counts = np.nansum(frame)
-        results_dict = {self.ResultKey.COUNTS.value: counts}
-        return results_dict
+        counts_field = DataDictField(datamodel=datamodel,
+                                     field_name=self.output_field_name,
+                                     data_source_name=self.processor_name,
+                                     scale='shot')
+        counts_field.set_data(shot_num, counts)
 
 
 rb_atom_dict = dict()
@@ -280,21 +281,20 @@ class HetDemodulationShotProcessor(ShotProcessor):
         return I_xr, Q_xr, A_xr, phi_xr, time_data
 
 
-class AbsorptionGaussianFitShotProcessor(ShotProcessor):
-    class ResultKey(Enum):
-        GAUSSIAN_FIT_STRUCT = 'gaussian_fit_struct'
-
-    def __init__(self, *, processor_name, frame_field, output_field_name, reset):
-        super(AbsorptionGaussianFitShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
-        self.frame_field = frame_field
+class GaussianFitShotProcessor(ShotProcessor):
+    def __init__(self, *, processor_name, input_frame_field_name, output_field_name, reset):
+        super(GaussianFitShotProcessor, self).__init__(processor_name=processor_name, reset=reset)
+        self.input_frame_field_name = input_frame_field_name
         self.output_field_name = output_field_name
 
     def process_shot(self, shot_num, datamodel):
-        frame = datamodel.get_data(self.frame_field, shot_num)
+        frame = datamodel.get_data(self.input_frame_field_name, shot_num)
         fit_struct = fit_gaussian2d(frame, show_plot=False, save_name=None, quiet=True)
-        output_data_field = DataDictField(datamodel=datamodel, field_name=self.output_field_name,
-                                          data_source_name=self.processor_name, scale='shot')
-        output_data_field.set_data(shot_num, fit_struct)
+        output_field = DataDictField(datamodel=datamodel,
+                                     field_name=self.output_field_name,
+                                     data_source_name=self.processor_name,
+                                     scale='shot')
+        output_field.set_data(shot_num, fit_struct)
 
 
 # noinspection PyPep8Naming

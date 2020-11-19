@@ -27,6 +27,11 @@ def create_fit_struct(fit_func, input_data, output_data, popt_dict, pcov, conf_l
         fit_struct[key] = fit_param_dict
         fit_struct_param_keys.append(key)
     fit_struct['param_keys'] = fit_struct_param_keys
+    kwargs = dict()
+    for key in fit_struct_param_keys:
+        val = fit_struct[key]['val']
+        kwargs[key] = val
+    fit_struct['kwargs'] = kwargs
     fit_struct['cov'] = pcov
     if not lightweight:
         fit_struct['input_data'] = input_data

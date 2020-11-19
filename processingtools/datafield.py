@@ -136,18 +136,18 @@ class DataDictField(DataField):
             curr_dict = curr_dict[child_dict_name]
         return curr_dict
 
-    def make_data_dict_pathchain(self, shot_num):
-        shot_key = f'shot-{shot_num:d}'
-        make_data_dict_pathchain = f'{self.scale}_data/{self.data_source_name}{shot_key}/'
-        return make_data_dict_pathchain
+    def make_data_dict_pathchain(self, data_num):
+        num_key = f'{self.scale}-{data_num:d}'
+        data_dict_pathchain = f'{self.scale}_data/{self.data_source_name}/{num_key}'
+        return data_dict_pathchain
 
-    def get_data(self, shot_num):
-        data_dict_pathchain = self.make_data_dict_pathchain(shot_num)
+    def get_data(self, data_num):
+        data_dict_pathchain = self.make_data_dict_pathchain(data_num)
         shot_dict = self.reduce_by_keychain(data_source=self.data_dict, keychain=data_dict_pathchain)
         data = shot_dict[self.field_name]
         return data
 
-    def set_data(self, shot_num, data):
-        data_dict_pathchain = self.make_data_dict_pathchain(shot_num)
+    def set_data(self, data_num, data):
+        data_dict_pathchain = self.make_data_dict_pathchain(data_num)
         shot_dict = self.create_sub_dict(self.data_dict, data_dict_pathchain)
         shot_dict[self.field_name] = data
