@@ -91,7 +91,14 @@ class H5DataField(DataField):
             dataset.attrs[attr_name] = attr
 
 
-class GageRawDataField(H5DataField):
+class TimedDataField(H5DataField):
+    def get_dt(self):
+        data = super(TimedDataField, self).get_data(shot_num=0)
+        dt = data.attrs['dx']
+        return dt
+
+
+class GageRawDataField(TimedDataField):
     def __init__(self, *, datamodel, data_source_name, field_name, file_prefix, h5_subpath):
         super(GageRawDataField, self).__init__(datamodel=datamodel, data_source_name=data_source_name,
                                                field_name=field_name, file_prefix=file_prefix, h5_subpath=h5_subpath,

@@ -41,13 +41,20 @@ class RawDataStream(InputParamLogger):
 
 
 class GageRawDataStream(RawDataStream):
-    def make_data_field(self, datamodel):
+    # def make_data_field(self, datamodel):
+    #     for field_name in self.data_field_dict:
+    #         h5_subpath = self.data_field_dict[field_name]
+    #         new_datafield = GageRawDataField(datamodel=datamodel, data_source_name=self.datastream_name,
+    #                                          field_name=field_name, file_prefix=self.file_prefix,
+    #                                          h5_subpath=h5_subpath)
+    #         return new_datafield
+    def make_data_fields(self, datamodel):
         for field_name in self.data_field_dict:
             h5_subpath = self.data_field_dict[field_name]
             new_datafield = GageRawDataField(datamodel=datamodel, data_source_name=self.datastream_name,
                                              field_name=field_name, file_prefix=self.file_prefix,
                                              h5_subpath=h5_subpath)
-            return new_datafield
+            # datamodel.add_datafield(new_datafield)
 
 
 def get_gagescope_trace(file_path, channel_name, segment_name):

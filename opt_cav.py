@@ -89,7 +89,8 @@ class CavityMode:
 
         self.mode_volume = np.pi/4 * self.w0**2 * self.cavity.length
 
-    def calc_g(self, omega, dge):
+    def calc_g(self, dge):
+        omega = c *  2 * np.pi / self.wavelength
         g = - np.sqrt(omega / (2 * ep0 * hbar * self.mode_volume)) * dge
         return g
 
@@ -109,9 +110,8 @@ class CavityMode:
 
 def calc_e6_coop(cavity):
     dge = Rb87_Atom.transitions['D2'].calc_hyperfine_transition_dipole(2, 3, 2, 3, -1)
-    omega = Rb87_Atom.transitions['D2'].omega_0
     probe_mode = CavityMode(cavity, wavelength=780e-9)
-    g = probe_mode.calc_g(omega, dge)
+    g = probe_mode.calc_g(dge)
     kappa = cavity.kappa
     gamma = Rb87_Atom.transitions['D2'].gamma
     coop = 4 * g**2 / (kappa * gamma)

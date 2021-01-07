@@ -8,7 +8,7 @@ import xarray as xr
 from ..imagetools import get_image
 from ..datatools import qprint
 from ..datastream import get_gagescope_trace
-from ..datafield import H5DataField, DataDictField
+from ..datafield import H5DataField, DataDictField, TimedDataField
 from .processor import Processor, ProcessorScale
 from ...smart_gaussian2d_fit import fit_gaussian2d
 from ..fittools import lor_fit
@@ -124,9 +124,9 @@ class AbsorptionShotProcessor(ShotProcessor):
         self.count_conversion = self.imaging_system_dict['count_conversion']
 
     def process_shot(self, shot_num, datamodel):
-        atom_frame = datamodel.get_data(self.atom_frame_field_name, shot_num)[self.roi_slice]
-        bright_frame = datamodel.get_data(self.atom_frame_field_name, shot_num)[self.roi_slice]
-        dark_frame = datamodel.get_data(self.atom_frame_field_name, shot_num)[self.roi_slice]
+        atom_frame = datamodel.get_data(self.atom_frame_field_name, shot_num)[self.roi_slice].astype(float)
+        bright_frame = datamodel.get_data(self.bright_frame_field_name, shot_num)[self.roi_slice].astype(float)
+        dark_frame = datamodel.get_data(self.dark_frame_field_name, shot_num)[self.roi_slice].astype(float)
         od_frame, atom_frame = self.absorption_od_and_number(atom_frame, bright_frame, dark_frame)
 
         atom_frame_field = DataDictField(datamodel=datamodel,
@@ -232,7 +232,8 @@ class HetDemodulationShotProcessor(ShotProcessor):
     def process_shot(self, shot_num, datamodel):
         # raw_het, dt = get_gagescope_trace(file_path, self.channel_name, self.segment_name)
         raw_het = datamodel.get_data(self.raw_het_data_field, shot_num)
-        dt = raw_het.attrs['dx']
+        dt = datamodel.datafield_dict[self.raw_het_data_field].get_dt()
+        # dt = raw_het.attrs['dx']
         # dt = 5e-9
 
         num_samples = len(raw_het)
@@ -244,10 +245,10 @@ class HetDemodulationShotProcessor(ShotProcessor):
         results_dict = {'A_het': A_het, 'phi_het': phi_het, 'I_het': I_het, 'Q_het': Q_het}
         for idx, key in enumerate(results_dict):
             data = results_dict[key]
-            new_data_field = H5DataField(datamodel=datamodel,
-                                         data_source_name=self.processor_name,
-                                         field_name=self.output_data_fields[idx],
-                                         file_prefix='iteration', h5_subpath=key, mode='processed')
+            new_data_field = TimedDataField(datamodel=datamodel,
+                                            data_source_name=self.processor_name,
+                                            field_name=self.output_data_fields[idx],
+                                            file_prefix='iteration', h5_subpath=key, mode='processed')
             datamodel.add_datafield(new_data_field)
             new_data_field.set_data(shot_num, data)
 
@@ -310,11 +311,11 @@ class CavSweepFitShotProcessor(ShotProcessor):
 
     def process_shot(self, shot_num, datamodel):
         A_het = datamodel.get_data(self.A_het_data_field, shot_num)
-        A_het_dt = A_het.attrs['dx']
+        A_het_dt = datamodel.datafield_dict[self.A_het_data_field].get_dt()
         A_het_time = np.arange(0, len(A_het) * A_het_dt, A_het_dt)
 
         vco_trace = datamodel.get_data(self.vco_data_field, shot_num)
-        vco_dt = vco_trace.attrs['dx']
+        vco_dt = datamodel.datafield_dict[self.vco_data_field].get_dt()
         vco_time = np.arange(0, len(vco_trace) * vco_dt, vco_dt)
 
         vco_interp_func = interp1d(vco_time, vco_trace)

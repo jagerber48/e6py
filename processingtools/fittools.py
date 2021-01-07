@@ -19,7 +19,8 @@ def make_fit_param_dict(name, val, std, conf_level=erf(1 / np.sqrt(2)), dof=None
 
 
 def create_fit_struct(fit_func, input_data, output_data, popt_dict, pcov, conf_level, dof, lightweight=False):
-    model_data = fit_func(input_data, **popt_dict)
+    popt = list(popt_dict.values())
+    model_data = fit_func(input_data, *popt)
     fit_struct = dict()
     fit_struct_param_keys = []
     for i, key in enumerate(popt_dict.keys()):

@@ -182,16 +182,15 @@ class AllShotsReporter(Reporter):
 
 
 class GaussianFitAllShotsReporter(AllShotsReporter):
-    def __init__(self, *, reporter_name, gaussian_fit_processor, reset):
+    def __init__(self, *, reporter_name, fit_struct_field_name, reset):
         super(GaussianFitAllShotsReporter, self).__init__(reporter_name=reporter_name, reset=reset)
-        self.gaussian_fit_processor = gaussian_fit_processor
+        self.fit_struct_field_name = fit_struct_field_name
 
     # noinspection PyPep8Naming
     def report_shot(self, shot_num, datamodel):
         data_dict = datamodel.data_dict
         shot_key = f'shot-{shot_num:d}'
-        fit_struct = (data_dict['shot_processors'][self.gaussian_fit_processor]
-                      ['results'][shot_key]['gaussian_fit_struct'])
+        fit_struct = datamodel.get_data(self.fit_struct_field_name, shot_num)
 
         img = fit_struct['data_img']
         model_img = fit_struct['model_img']

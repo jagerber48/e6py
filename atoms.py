@@ -67,8 +67,8 @@ class FineTransition:
 
     def calc_hyperfine_transition_dipole(self, Fg, Fe, mFg, mFe, q):
         dFF = (self.dJJ * (-1)**(Fe + self.Jg + 1 + self.Inuc) * np.sqrt((2 * Fe + 1) * (2 * self.Jg + 1))
-               * wigner_6j(self.Jg, self.Je, 1, Fe, Fg, self.Inuc).evalf())
-        d_hf = dFF * (-1)**(Fe - 1 + mFg) * np.sqrt(2 * Fg + 1) * wigner_3j(Fe, 1, Fg, mFe, q, -mFg).evalf()
+               * wigner_6j(self.Jg, self.Je, 1, Fe, Fg, self.Inuc))#.evalf())
+        d_hf = dFF * (-1)**(Fe - 1 + mFg) * np.sqrt(2 * Fg + 1) * wigner_3j(Fe, 1, Fg, mFe, q, -mFg)#.evalf()
         return d_hf
 
 
@@ -137,27 +137,39 @@ Rb87_D1_transition_data = {
     'reference': 'Steck D Line Data'
 }
 Rb87_5P32_to_4D32_transition_data = {
-    'name': '5P32_to_4De32',
+    'name': '5P32_to_4D32',
     'Jg': 1.5,
     'Je': 1.5,
     'Inuc': 1.5,
-    'frequency': c / 1529.25e-9,
+    'frequency': c / 1529.26e-9,
     'lifetime': 1 / 1.864e6,
     'reference': 'PhysRevA 83 052508 (2011)'
 }
-Rb87_5P32_to_4D12_transition_data = {
-    'name': '5P32_to_4De12',
+Rb87_5P32_to_4D52_transition_data = {
+    'name': '5P32_to_4D52',
     'Jg': 1.5,
-    'Je': 0.5,
+    'Je': 2.5,
     'Inuc': 1.5,
     'frequency': c / 1529.37e-9,
     'lifetime': 1 / 1.119e7,
     'reference': 'PhysRevA 83 052508 (2011)'
 }
+
+Rb87_5P32_to_6S12_transition_data = {
+    'name': '5P32_to_6S12',
+    'Jg': 1.5,
+    'Je': 0.5,
+    'Inuc': 1.5,
+    'frequency': c / 1366.87e-9,
+    'lifetime': 1 / 1.451e7,
+    'reference': 'PhysRevA 83 052508 (2011)'
+}
+
 Rb87_D2_transition = FineTransition(Rb87_D2_transition_data)
 Rb87_D1_transition = FineTransition(Rb87_D1_transition_data)
 Rb87_5P32_to_4D32_transition = FineTransition(Rb87_5P32_to_4D32_transition_data)
-Rb87_5P32_to_4D12_transition = FineTransition(Rb87_5P32_to_4D12_transition_data)
+Rb87_5P32_to_4D52_transition = FineTransition(Rb87_5P32_to_4D52_transition_data)
+Rb87_5P32_to_6S12_transition = FineTransition(Rb87_5P32_to_6S12_transition_data)
 
 Rb87_data = {
     'is_boson': True,
@@ -165,7 +177,8 @@ Rb87_data = {
     'transitions': {'D2': Rb87_D2_transition,
                     'D1': Rb87_D1_transition,
                     '5P32_to_4D32': Rb87_5P32_to_4D32_transition,
-                    '5P32_to_4D12': Rb87_5P32_to_4D12_transition}
+                    '5P32_to_4D52': Rb87_5P32_to_4D52_transition,
+                    '5P32_to_6S12': Rb87_5P32_to_6S12_transition}
 }
 
 Rb87_Atom = Atom(Rb87_data)

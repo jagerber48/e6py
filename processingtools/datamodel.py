@@ -32,6 +32,7 @@ def reload_data_model(*, daily_path, run_name, run_doc_string, num_points,
 
     add_to_datamodel(datamodel=datamodel, datastream_list=datastream_list, shot_processor_list=shot_processor_list,
                      point_processor_list=point_processor_list, reporter_list=reporter_list)
+    return datamodel
 
 
 def load_data_model(daily_path, run_name, quiet=False):
@@ -40,14 +41,19 @@ def load_data_model(daily_path, run_name, quiet=False):
     data_model_path = Path(data_model_dir, data_model_filename)
 
     qprint(f'Loading data_dict from {data_model_path}', quiet=quiet)
-    data_dict = pickle.load(open(data_model_path, 'rb'))
+    data_dict_raw = pickle.load(open(data_model_path, 'rb'))
+    run_doc_string = data_dict_raw['run_doc_string']
+    num_points = data_dict_raw['num_points']
+    data_dict = DataModelDict(daily_path=daily_path, run_name=run_name,
+                              run_doc_string=run_doc_string, num_points=num_points, quiet=quiet)
+    data_dict.data_dict = data_dict_raw
     datamodel = DataModel(data_dict=data_dict, quiet=quiet)
     return datamodel
 
 
 def create_data_model(*, daily_path, run_name, run_doc_string, num_points, quiet):
     data_dict = DataModelDict(daily_path=daily_path, run_name=run_name,
-                              run_doc_string=run_doc_string, num_points=num_points)
+                              run_doc_string=run_doc_string, num_points=num_points, quiet=quiet)
     datamodel = DataModel(data_dict, quiet=quiet)
     return datamodel
 
@@ -101,6 +107,7 @@ class DataModel:
         datastream.set_run(self.daily_path, self.run_name)
         if self.num_shots is None:
             self.num_shots = datastream.num_shots
+            self.set_shot_lists()
         elif datastream.num_shots != self.num_shots:
             print(f'Warning, num_shots for datastream: "{name}" incommensurate with datamodel num_shots!')
 
