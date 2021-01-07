@@ -16,6 +16,7 @@ class PointProcessor(Processor):
     def scaled_process(self, datamodel, quiet=False):
         data_dict = datamodel.data_dict
         num_points = data_dict['num_points']
+        datamodel.add_subdict(data_dict['point_data'], self.processor_name, overwrite=self.reset)
         processor_output_dict = data_dict['point_data'][self.processor_name]
         if 'processed_shots' not in processor_output_dict:
             processor_output_dict['processed_shots'] = dict()

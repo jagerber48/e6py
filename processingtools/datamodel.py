@@ -13,7 +13,7 @@ def print_dict_tree(dict_tree, level=0):
 def reload_data_model(*, daily_path, run_name, run_doc_string, num_points,
                       datastream_list, shot_processor_list,
                       point_processor_list, reporter_list,
-                      quiet, reset_hard):
+                      reset_hard, quiet):
     data_model_dir = Path(daily_path, 'analysis', run_name)
     data_model_filename = f'{run_name}-datamodel.p'
     data_model_path = Path(data_model_dir, data_model_filename)
@@ -41,19 +41,18 @@ def load_data_model(daily_path, run_name, quiet=False):
     data_model_path = Path(data_model_dir, data_model_filename)
 
     qprint(f'Loading data_dict from {data_model_path}', quiet=quiet)
-    data_dict_raw = pickle.load(open(data_model_path, 'rb'))
-    run_doc_string = data_dict_raw['run_doc_string']
-    num_points = data_dict_raw['num_points']
-    data_dict = DataModelDict(daily_path=daily_path, run_name=run_name,
-                              run_doc_string=run_doc_string, num_points=num_points, quiet=quiet)
-    data_dict.data_dict = data_dict_raw
+    loaded_dict = pickle.load(open(data_model_path, 'rb'))
+    run_doc_string = loaded_dict['run_doc_string']
+    num_points = loaded_dict['num_points']
+    data_dict = DataModelDict(daily_path, run_name, run_doc_string, num_points, quiet)
+    data_dict.data_dict = loaded_dict
     datamodel = DataModel(data_dict=data_dict, quiet=quiet)
     return datamodel
 
 
 def create_data_model(*, daily_path, run_name, run_doc_string, num_points, quiet):
     data_dict = DataModelDict(daily_path=daily_path, run_name=run_name,
-                              run_doc_string=run_doc_string, num_points=num_points, quiet=quiet)
+                              run_doc_string=run_doc_string, num_points=num_points)
     datamodel = DataModel(data_dict, quiet=quiet)
     return datamodel
 
@@ -66,6 +65,7 @@ def add_to_datamodel(*, datamodel, datastream_list, shot_processor_list, point_p
 
     for datastream in datastream_list:
         datamodel.add_datastream(datastream)
+    datamodel.set_shot_lists()
     for shot_processor in shot_processor_list:
         datamodel.add_shot_processor(shot_processor)
     for point_processor in point_processor_list:
@@ -91,8 +91,7 @@ class DataModel:
         self.num_shots = None
 
         self.load_datamodel()
-        self.set_shot_lists()
-        self.data_dict.save_dict()
+        self.data_dict.save_dict(quiet=self.quiet)
 
     @staticmethod
     def add_subdict(parent_dict, child_dict_name, overwrite=False):
@@ -101,17 +100,13 @@ class DataModel:
 
     def add_datastream(self, datastream):
         name = datastream.datastream_name
+        datastream.set_run(self.daily_path, self.run_name)
+        datastream.make_data_fields(datamodel=self)
+
         self.datastream_dict[name] = datastream
         self.data_dict['datastreams'][name] = datastream.input_param_dict
-
-        datastream.set_run(self.daily_path, self.run_name)
-        if self.num_shots is None:
-            self.num_shots = datastream.num_shots
-            self.set_shot_lists()
-        elif datastream.num_shots != self.num_shots:
-            print(f'Warning, num_shots for datastream: "{name}" incommensurate with datamodel num_shots!')
-
-        datastream.make_data_fields(datamodel=self)
+        self.data_dict['num_shots'] = datastream.num_shots
+        self.data_dict.save_dict(quiet=True)
 
     def add_shot_processor(self, shot_processor):
         name = shot_processor.processor_name
@@ -123,7 +118,7 @@ class DataModel:
                 shot_processor.reset = True
         self.shot_processor_dict[name] = shot_processor
         self.data_dict['shot_processors'][name] = shot_processor.input_param_dict
-
+        self.data_dict.save_dict(quiet=self.quiet)
     def add_point_processor(self, point_processor):
         name = point_processor.processor_name
         if name in self.data_dict['point_processors']:
@@ -139,11 +134,13 @@ class DataModel:
         name = reporter.reporter_name
         self.reporter_dict[name] = reporter
         self.data_dict['reporters'][name] = reporter.input_param_dict
+        self.data_dict.save_dict(quiet=True)
 
     def add_datafield(self, datafield):
         name = datafield.field_name
         self.datafield_dict[name] = datafield
         self.data_dict['datafields'][name] = datafield.input_param_dict
+        self.data_dict.save_dict(quiet=True)
 
     def load_datamodel(self):
         self.load_datastreams()
@@ -208,6 +205,8 @@ class DataModel:
         print_dict_tree(self.data_dict, level=0)
 
     def set_shot_lists(self):
+        num_shots = self.data_dict['num_shots']
+        num_points = self.data_dict['num_points']
         if 'num_points' in self.data_dict:
             if self.data_dict['num_points'] != self.num_points:
                 self.data_dict['point_processors'] = dict()
@@ -216,9 +215,10 @@ class DataModel:
         self.data_dict['loop_nums'] = dict()
         for point in range(self.num_points):
             key = f'point-{point:d}'
-            point_shots, point_loops = get_shot_list_from_point(point, self.num_points, self.num_shots)
+            point_shots, point_loops = get_shot_list_from_point(point, num_points, num_shots)
             self.data_dict['shot_list'][key] = point_shots
             self.data_dict['loop_nums'][key] = point_loops
+        self.data_dict.save_dict(quiet=self.quiet)
 
 
 class DataModelDict:

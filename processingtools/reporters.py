@@ -53,7 +53,7 @@ class AtomRefCountsReporter(Reporter):
             ax_hist = fig.add_subplot(2, 1, 2)
             ax_hist.set_xlabel('Counts')
             ax_hist.set_ylabel('Frequency')
-            bins = 10
+            bins = max(min(int(shot_num/num_points/15),50), 10)
             for y_data in [atom_data, ref_data]:
                 ax_loop.plot(y_data, '.', markersize=10)
                 n, bins, patches = ax_hist.hist(y_data, alpha=0.5, bins=bins)
