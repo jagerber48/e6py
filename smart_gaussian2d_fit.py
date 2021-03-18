@@ -37,7 +37,6 @@ def img_moments(img):
 def get_guess_values(img, quiet=True):
     x_range = img.shape[1]
     y_range = img.shape[0]
-    # print(img)
     amp_guess = np.nanmax(img) - np.nanmin(img)
     offset_guess = np.nanmin(img)
     try:
@@ -328,6 +327,7 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
     except np.linalg.LinAlgError as e:
         print(e)
         cov = 0 * jac
+
     fit_struct = create_fit_struct(img, popt_dict, cov, conf_level, dof, lightweight=lightweight)
     if show_plot or (save_name is not None):
         if not lightweight:
