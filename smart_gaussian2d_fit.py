@@ -174,7 +174,8 @@ def create_fit_struct(img, popt_dict, pcov, conf_level, dof, lightweight=False):
 
 # noinspection PyTypeChecker
 def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_angle=False,
-                   show_plot=True, save_name=None, conf_level=erf(1 / np.sqrt(2)), quiet=True, lightweight=False):
+                   show_plot=True, save_name=None, conf_level=erf(1 / np.sqrt(2)), quiet=True, lightweight=False,
+                   guess = None):
     """
     2D Gaussian fit to an image
 
@@ -259,14 +260,17 @@ def fit_gaussian2d(img, zoom=1.0, angle_offset=0.0, fix_lin_slope=False, fix_ang
     """
 
     img_downsampled = scipy.ndimage.interpolation.zoom(img, 1 / zoom)
-    zoom = 1.0
+    # zoom = 1.0
     img_downsampled = np.nan_to_num(img)
     img = np.nan_to_num(img)
     if not quiet:
         print(f'Image downsampled by factor: {zoom:.1f}')
     y_coords, x_coords = np.indices(img_downsampled.shape)
 
-    p_guess = get_guess_values(img, quiet=quiet)
+    if guess == None:
+        p_guess = get_guess_values(img, quiet=quiet)
+    else:
+        p_guess = guess
     param_keys = ['x0', 'y0', 'sx', 'sy', 'amp', 'offset']
     lock_params = dict()
     if fix_angle:
